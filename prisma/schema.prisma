@@ -1,0 +1,1210 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// MULTI-TENANT ORGANIZATION & AUTH
+// ============================================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logo        String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  country     String   @default("CO")
+  currency    String   @default("COP")
+  timezone    String   @default("America/Bogota")
+  locale      String   @default("es-CO")
+  plan        String   @default("starter")
+  isActive    Boolean  @default(true)
+  settings    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  users       User[]
+  clients     Client[]
+  assets      Asset[]
+  workOrders  WorkOrder[]
+  parts       Part[]
+  warehouses  Warehouse[]
+  technicians Technician[]
+  maintenancePlans MaintenancePlan[]
+  documents   Document[]
+  notifications Notification[]
+  auditLogs   AuditLog[]
+  imports     Import[]
+  contracts   Contract[]
+  warranties  Warranty[]
+  reports     Report[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  organizationId String
+  email          String    @unique
+  name           String
+  password       String?
+  phone          String?
+  avatar         String?
+  isActive       Boolean   @default(true)
+  emailVerified  DateTime?
+  lastLogin      DateTime?
+  mfaEnabled     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userRoles      UserRole[]
+  sessions       Session[]
+  workOrdersCreated  WorkOrder[] @relation("WorkOrderCreator")
+  workOrdersAssigned WorkOrder[] @relation("WorkOrderAssignee")
+  comments       WorkOrderComment[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  signatures     Signature[]
+  serviceRequests ServiceRequest[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  displayName String
+  description String?
+  isSystem    Boolean  @default(false)
+  permissions String   @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  refreshToken String?  @unique
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ============================================================
+// CLIENTS & LOCATIONS
+// ============================================================
+
+model Client {
+  id             String    @id @default(cuid())
+  organizationId String
+  code           String?
+  name           String
+  nit            String?
+  email          String?
+  phone          String?
+  address        String?
+  city           String?
+  department     String?
+  country        String    @default("CO")
+  sector         String?
+  cropType       String?
+  contactName    String?
+  contactPhone   String?
+  contactEmail   String?
+  serviceLevel   String?   @default("standard")
+  notes          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  sites          ClientSite[]
+  assets         Asset[]
+  workOrders     WorkOrder[]
+  contracts      Contract[]
+  warranties     Warranty[]
+  serviceRequests ServiceRequest[]
+
+  @@map("clients")
+}
+
+model ClientSite {
+  id             String    @id @default(cuid())
+  clientId       String
+  name           String
+  address        String?
+  city           String?
+  department     String?
+  country        String    @default("CO")
+  latitude       Float?
+  longitude      Float?
+  contactName    String?
+  contactPhone   String?
+  accessNotes    String?
+  availableHours String?
+  safetyNotes    String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  client         Client @relation(fields: [clientId], references: [id])
+  assets         Asset[]
+  workOrders     WorkOrder[]
+
+  @@map("client_sites")
+}
+
+// ============================================================
+// ASSETS / MACHINERY
+// ============================================================
+
+model AssetCategory {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assetModels AssetModel[]
+  assets      Asset[]
+
+  @@map("asset_categories")
+}
+
+model Brand {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String?  @unique
+  logo        String?
+  country     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assetModels AssetModel[]
+  assets      Asset[]
+  parts       Part[]
+
+  @@map("brands")
+}
+
+model AssetModel {
+  id             String    @id @default(cuid())
+  brandId        String
+  categoryId     String
+  name           String
+  code           String?
+  year           Int?
+  engine         String?
+  power          String?
+  transmission   String?
+  hydraulics     String?
+  description    String?
+  specs          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  brand          Brand @relation(fields: [brandId], references: [id])
+  category       AssetCategory @relation(fields: [categoryId], references: [id])
+  assets         Asset[]
+  maintenancePlans MaintenancePlan[]
+  documents      Document[]
+  partCompatibility PartAssetCompatibility[]
+
+  @@map("asset_models")
+}
+
+model Asset {
+  id               String    @id @default(cuid())
+  organizationId   String
+  clientId         String
+  siteId           String?
+  modelId          String?
+  categoryId       String?
+  brandId          String?
+  
+  internalCode     String?
+  serialNumber     String?
+  name             String
+  description      String?
+  year             Int?
+  purchaseDate     DateTime?
+  deliveryDate     DateTime?
+  
+  currentHours     Float     @default(0)
+  currentKm        Float?
+  measureUnit      String    @default("hours") // hours, km, days
+  
+  operativeStatus  String    @default("operative") // operative, maintenance, out_of_service, warranty, pending_parts, diagnosis, retired
+  criticality      String    @default("medium") // low, medium, high, critical
+  
+  engine           String?
+  transmission     String?
+  hydraulics       String?
+  electricSystem   String?
+  tires            String?
+  
+  latitude         Float?
+  longitude        Float?
+  
+  photos           String?  @default("[]")
+  notes            String?
+  
+  warrantyExpiry   DateTime?
+  warrantyHours    Float?
+  
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  client           Client @relation(fields: [clientId], references: [id])
+  site             ClientSite? @relation(fields: [siteId], references: [id])
+  model            AssetModel? @relation(fields: [modelId], references: [id])
+  category         AssetCategory? @relation(fields: [categoryId], references: [id])
+  brand            Brand? @relation(fields: [brandId], references: [id])
+  
+  workOrders       WorkOrder[]
+  maintenancePlans MaintenancePlanAsset[]
+  inspections      Inspection[]
+  serviceRequests  ServiceRequest[]
+  warranties       Warranty[]
+  attachments      AssetAttachment[]
+  qrCodes          QrCode[]
+  hourReadings     HourReading[]
+
+  @@map("assets")
+}
+
+model AssetAttachment {
+  id        String   @id @default(cuid())
+  assetId   String
+  type      String   // photo, document, manual, video
+  url       String
+  name      String
+  size      Int?
+  mimeType  String?
+  createdAt DateTime @default(now())
+
+  asset     Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("asset_attachments")
+}
+
+model HourReading {
+  id        String   @id @default(cuid())
+  assetId   String
+  hours     Float
+  km        Float?
+  readAt    DateTime
+  source    String   // manual, work_order, automatic
+  notes     String?
+  createdAt DateTime @default(now())
+
+  asset     Asset @relation(fields: [assetId], references: [id])
+
+  @@map("hour_readings")
+}
+
+// ============================================================
+// MAINTENANCE PLANS
+// ============================================================
+
+model MaintenancePlan {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  type           String    @default("preventive") // preventive, predictive, seasonal
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  models         AssetModel[]
+  assets         MaintenancePlanAsset[]
+  tasks          MaintenancePlanTask[]
+
+  @@map("maintenance_plans")
+}
+
+model MaintenancePlanAsset {
+  id       String @id @default(cuid())
+  planId   String
+  assetId  String
+
+  plan     MaintenancePlan @relation(fields: [planId], references: [id])
+  asset    Asset @relation(fields: [assetId], references: [id])
+
+  @@unique([planId, assetId])
+  @@map("maintenance_plan_assets")
+}
+
+model MaintenancePlanTask {
+  id              String    @id @default(cuid())
+  planId          String
+  name            String
+  description     String?
+  system          String?   // motor, transmision, hidraulico, electrico, etc
+  component       String?
+  
+  // Frequency config
+  frequencyType   String    // hours, km, days, weeks, months, seasons, event, condition
+  frequencyValue  Float?
+  frequencyUnit   String?
+  
+  // Estimated time
+  estimatedHours  Float?
+  
+  // Resources
+  requiredParts   String?  @default("[]")
+  requiredTools   String?  @default("[]")
+  requiredSkills  String?  @default("[]")
+  lubricant       String?
+  
+  criticality     String    @default("medium")
+  procedureRef    String?
+  manualRef       String?
+  notes           String?
+  
+  isActive        Boolean   @default(true)
+  order           Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  plan            MaintenancePlan @relation(fields: [planId], references: [id])
+
+  @@map("maintenance_plan_tasks")
+}
+
+// ============================================================
+// WORK ORDERS
+// ============================================================
+
+model WorkOrder {
+  id              String    @id @default(cuid())
+  organizationId  String
+  number          String    @unique
+  
+  type            String    @default("preventive") // preventive, corrective, predictive, inspection, lubrication, diagnosis, warranty, emergency, campaign, predelivery, seasonal_pre, seasonal_post, daily_operator
+  priority        String    @default("medium") // low, medium, high, critical, stopped, safety
+  status          String    @default("new") // new, requested, approved, scheduled, assigned, en_route, in_progress, paused, pending_parts, pending_approval, pending_client, completed_by_tech, in_review, closed, cancelled, reopened
+  
+  assetId         String?
+  clientId        String?
+  siteId          String?
+  
+  title           String
+  description     String?
+  
+  createdById     String
+  assignedToId    String?
+  
+  scheduledDate   DateTime?
+  dueDate         DateTime?
+  startedAt       DateTime?
+  closedAt        DateTime?
+  
+  estimatedHours  Float?
+  actualHours     Float?
+  
+  horometerAtStart Float?
+  horometerAtEnd   Float?
+  
+  problem         String?
+  rootCause       String?
+  actionTaken     String?
+  findings        String?
+  recommendations String?
+  
+  laborCost       Float?    @default(0)
+  partsCost       Float?    @default(0)
+  externalCost    Float?    @default(0)
+  totalCost       Float?    @default(0)
+  
+  finalAssetStatus String?
+  nextAction       String?
+  nextMaintenanceDate DateTime?
+  nextMaintenanceHours Float?
+  
+  customerRating   Int?
+  customerFeedback String?
+  
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  asset           Asset? @relation(fields: [assetId], references: [id])
+  client          Client? @relation(fields: [clientId], references: [id])
+  site            ClientSite? @relation(fields: [siteId], references: [id])
+  createdBy       User @relation("WorkOrderCreator", fields: [createdById], references: [id])
+  assignedTo      User? @relation("WorkOrderAssignee", fields: [assignedToId], references: [id])
+  
+  tasks           WorkOrderTask[]
+  comments        WorkOrderComment[]
+  statusHistory   WorkOrderStatusHistory[]
+  attachments     WorkOrderAttachment[]
+  partsUsed       WorkOrderPart[]
+  inspections     Inspection[]
+  signatures      Signature[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, assetId])
+  @@index([organizationId, clientId])
+  @@index([assignedToId])
+  @@map("work_orders")
+}
+
+model WorkOrderTask {
+  id          String   @id @default(cuid())
+  workOrderId String
+  name        String
+  description String?
+  status      String   @default("pending") // pending, in_progress, completed, skipped
+  order       Int      @default(0)
+  completedAt DateTime?
+  completedBy String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  // --- NUEVOS CAMPOS PARA PROYECTOS ---
+  technicianId   String?
+  startDate      DateTime?
+  endDate        DateTime?
+  estimatedHours Float?
+  actualHours    Float?
+  progress       Int       @default(0) // 0 to 100
+
+  // Jerarquía
+  system         String?
+  component      String?
+
+  technician  Technician? @relation(fields: [technicianId], references: [id])
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  parts       WorkOrderPart[]
+  subtasks    WorkOrderSubtask[]
+
+  @@map("work_order_tasks")
+}
+
+model WorkOrderSubtask {
+  id          String   @id @default(cuid())
+  taskId      String
+  name        String
+  isCompleted Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task        WorkOrderTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("work_order_subtasks")
+}
+
+model WorkOrderComment {
+  id          String   @id @default(cuid())
+  workOrderId String
+  userId      String
+  content     String
+  type        String   @default("comment") // comment, note, finding
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id])
+
+  @@map("work_order_comments")
+}
+
+model WorkOrderStatusHistory {
+  id          String   @id @default(cuid())
+  workOrderId String
+  fromStatus  String?
+  toStatus    String
+  changedById String?
+  reason      String?
+  notes       String?
+  changedAt   DateTime @default(now())
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@map("work_order_status_history")
+}
+
+model WorkOrderAttachment {
+  id          String   @id @default(cuid())
+  workOrderId String
+  type        String   // photo_before, photo_during, photo_after, video, audio, document
+  url         String
+  name        String
+  size        Int?
+  mimeType    String?
+  uploadedBy  String?
+  createdAt   DateTime @default(now())
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@map("work_order_attachments")
+}
+
+model WorkOrderPart {
+  id          String   @id @default(cuid())
+  workOrderId String
+  taskId      String?
+  partId      String?
+  partName    String
+  partCode    String?
+  quantity    Float
+  unitCost    Float?
+  totalCost   Float?
+  fromWarehouse String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  task        WorkOrderTask? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  part        Part? @relation(fields: [partId], references: [id])
+
+  @@map("work_order_parts")
+}
+
+// ============================================================
+// INSPECTIONS & CHECKLISTS
+// ============================================================
+
+model InspectionTemplate {
+  id             String    @id @default(cuid())
+  organizationId String?
+  name           String
+  description    String?
+  type           String    @default("preventive") // daily, pre_op, safety, preventive, post_service, delivery, warranty, failure_diagnosis, fluid_check, lubrication, adjustment, cleaning, calibration, wear
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  questions      InspectionQuestion[]
+  inspections    Inspection[]
+
+  @@map("inspection_templates")
+}
+
+model InspectionQuestion {
+  id          String   @id @default(cuid())
+  templateId  String
+  text        String
+  type        String   // yes_no, conform, good_reg_bad, number, text, photo_required, signature, dropdown, multi_select, hourometer, pressure, temperature, voltage, part_used, observation
+  options     String?  @default("[]")
+  required    Boolean  @default(false)
+  requirePhotoIf String? // condition to require photo
+  requireObsIf   String? // condition to require observation
+  createFindingIf String? // condition to create finding
+  order       Int      @default(0)
+  section     String?
+  helpText    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  template    InspectionTemplate @relation(fields: [templateId], references: [id])
+  answers     InspectionAnswer[]
+
+  @@map("inspection_questions")
+}
+
+model Inspection {
+  id           String    @id @default(cuid())
+  templateId   String?
+  workOrderId  String?
+  assetId      String?
+  conductedById String?
+  
+  status       String    @default("pending") // pending, in_progress, completed
+  startedAt    DateTime?
+  completedAt  DateTime?
+  
+  notes        String?
+  overallStatus String?  // pass, fail, needs_attention
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  template     InspectionTemplate? @relation(fields: [templateId], references: [id])
+  workOrder    WorkOrder? @relation(fields: [workOrderId], references: [id])
+  asset        Asset? @relation(fields: [assetId], references: [id])
+  answers      InspectionAnswer[]
+  findings     InspectionFinding[]
+
+  @@map("inspections")
+}
+
+model InspectionAnswer {
+  id           String   @id @default(cuid())
+  inspectionId String
+  questionId   String
+  value        String?
+  numericValue Float?
+  photoUrl     String?
+  notes        String?
+  status       String?  // pass, fail, needs_attention
+  createdAt    DateTime @default(now())
+
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  question     InspectionQuestion @relation(fields: [questionId], references: [id])
+
+  @@map("inspection_answers")
+}
+
+model InspectionFinding {
+  id           String   @id @default(cuid())
+  inspectionId String
+  description  String
+  severity     String   @default("medium")
+  photoUrl     String?
+  workOrderId  String?  // created work order if critical
+  status       String   @default("open") // open, in_progress, resolved
+  createdAt    DateTime @default(now())
+
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@map("inspection_findings")
+}
+
+// ============================================================
+// PARTS & INVENTORY
+// ============================================================
+
+model Part {
+  id              String    @id @default(cuid())
+  organizationId  String
+  brandId         String?
+  
+  internalCode    String?
+  oemCode         String?
+  alternateCode   String?
+  name            String
+  description     String?
+  
+  category        String?
+  family          String?
+  unit            String    @default("unit") // unit, liter, kg, meter
+  
+  currentStock    Float     @default(0)
+  minStock        Float     @default(0)
+  maxStock        Float?
+  
+  warehouseId     String?
+  location        String?
+  
+  averageCost     Float?    @default(0)
+  lastCost        Float?
+  
+  supplierId      String?
+  supplierCode    String?
+  leadTimeDays    Int?
+  
+  photoUrl        String?
+  notes           String?
+  criticality     String    @default("medium")
+  status          String    @default("active") // active, inactive, obsolete
+  
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  brand           Brand? @relation(fields: [brandId], references: [id])
+  warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
+  
+  compatibility   PartAssetCompatibility[]
+  movements       InventoryMovement[]
+  workOrderParts  WorkOrderPart[]
+  reservations    PartReservation[]
+
+  @@map("parts")
+}
+
+model Warehouse {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  code           String?
+  type           String    @default("main") // main, technician, vehicle, client
+  address        String?
+  managerId      String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  parts          Part[]
+  movements      InventoryMovement[]
+
+  @@map("warehouses")
+}
+
+model InventoryMovement {
+  id          String   @id @default(cuid())
+  partId      String
+  warehouseId String?
+  type        String   // entry, exit, adjustment, transfer, consumption, return
+  quantity    Float
+  unitCost    Float?
+  totalCost   Float?
+  reference   String?  // work order number, purchase order, etc
+  workOrderId String?
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  part        Part @relation(fields: [partId], references: [id])
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  @@map("inventory_movements")
+}
+
+model PartAssetCompatibility {
+  id       String @id @default(cuid())
+  partId   String
+  modelId  String
+
+  part     Part @relation(fields: [partId], references: [id])
+  model    AssetModel @relation(fields: [modelId], references: [id])
+
+  @@unique([partId, modelId])
+  @@map("part_asset_compatibility")
+}
+
+model PartReservation {
+  id          String   @id @default(cuid())
+  partId      String
+  workOrderId String?
+  quantity    Float
+  status      String   @default("reserved") // reserved, consumed, cancelled
+  reservedAt  DateTime @default(now())
+  consumedAt  DateTime?
+
+  part        Part @relation(fields: [partId], references: [id])
+
+  @@map("part_reservations")
+}
+
+// ============================================================
+// TECHNICIANS
+// ============================================================
+
+model Technician {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String?
+  name           String
+  document       String?
+  position       String?
+  specialty      String?  @default("[]")
+  level          String?   @default("junior") // junior, mid, senior, specialist
+  educationLevel String?   // Tecnico, Tecnologo, Profesional, etc
+  phone          String?
+  email          String?
+  
+  warehouseId    String?
+  vehicleId      String?
+  
+  zones          String?  @default("[]")
+  availableHours String?
+  
+  tools          String?  @default("[]")
+  certifications String?  @default("[]")
+  courses        String?  @default("[]")
+  
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  tasks          WorkOrderTask[]
+
+  @@map("technicians")
+}
+
+// ============================================================
+// SERVICE REQUESTS
+// ============================================================
+
+model ServiceRequest {
+  id             String    @id @default(cuid())
+  organizationId String?
+  clientId       String?
+  assetId        String?
+  requestedById  String?
+  
+  number         String    @unique
+  title          String
+  description    String?
+  urgency        String    @default("medium") // low, medium, high, critical
+  symptom        String?
+  
+  isEquipmentStopped Boolean @default(false)
+  isSafetyIssue      Boolean @default(false)
+  
+  desiredDate    DateTime?
+  horometerReading Float?
+  
+  photos         String?  @default("[]")
+  
+  status         String    @default("open") // open, reviewing, approved, rejected, converted
+  workOrderId    String?
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  client         Client? @relation(fields: [clientId], references: [id])
+  asset          Asset? @relation(fields: [assetId], references: [id])
+  requestedBy    User? @relation(fields: [requestedById], references: [id])
+
+  @@map("service_requests")
+}
+
+// ============================================================
+// DOCUMENTS & AI
+// ============================================================
+
+model Document {
+  id             String    @id @default(cuid())
+  organizationId String?
+  modelId        String?
+  
+  name           String
+  type           String    // operator_manual, service_manual, maintenance_manual, parts_catalog, technical_bulletin, warranty, procedure, spec_sheet, plan
+  url            String
+  size           Int?
+  mimeType       String?
+  
+  brand          String?
+  model          String?
+  year           String?
+  language       String    @default("es")
+  
+  isIndexed      Boolean   @default(false)
+  chunkCount     Int?
+  
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  assetModel     AssetModel? @relation(fields: [modelId], references: [id])
+  chunks         DocumentChunk[]
+
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  content    String
+  page       Int?
+  section    String?
+  chunkIndex Int
+  embedding  String?
+  createdAt  DateTime @default(now())
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_chunks")
+}
+
+// ============================================================
+// WARRANTIES & CONTRACTS
+// ============================================================
+
+model Warranty {
+  id             String    @id @default(cuid())
+  organizationId String?
+  assetId        String
+  clientId       String?
+  
+  deliveryDate   DateTime
+  expiryDate     DateTime?
+  coveredHours   Float?
+  currentHours   Float?
+  
+  conditions     String?
+  exclusions     String?
+  requiredServices String?
+  
+  status         String    @default("active") // active, expired, void, claimed
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  asset          Asset @relation(fields: [assetId], references: [id])
+  client         Client? @relation(fields: [clientId], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  claims         WarrantyClaim[]
+
+  @@map("warranties")
+}
+
+model WarrantyClaim {
+  id          String   @id @default(cuid())
+  warrantyId  String
+  description String
+  claimDate   DateTime @default(now())
+  status      String   @default("open") // open, approved, rejected, in_progress, closed
+  resolution  String?
+  workOrderId String?
+  createdAt   DateTime @default(now())
+
+  warranty    Warranty @relation(fields: [warrantyId], references: [id])
+
+  @@map("warranty_claims")
+}
+
+model Contract {
+  id             String    @id @default(cuid())
+  organizationId String?
+  clientId       String
+  
+  number         String    @unique
+  name           String
+  type           String    @default("maintenance") // maintenance, support, full_service
+  
+  startDate      DateTime
+  endDate        DateTime
+  
+  includedServices String?
+  excludedServices String?
+  sla            String?
+  
+  periodicReport Boolean   @default(false)
+  reportFrequency String?
+  
+  totalValue     Float?
+  currency       String    @default("COP")
+  
+  includedParts  Boolean   @default(false)
+  partsLimit     Float?
+  
+  status         String    @default("active") // active, expired, suspended, cancelled
+  
+  notes          String?
+  
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  client         Client @relation(fields: [clientId], references: [id])
+  assets         ContractAsset[]
+
+  @@map("contracts")
+}
+
+model ContractAsset {
+  id         String @id @default(cuid())
+  contractId String
+  assetId    String
+
+  contract   Contract @relation(fields: [contractId], references: [id])
+
+  @@unique([contractId, assetId])
+  @@map("contract_assets")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id             String    @id @default(cuid())
+  organizationId String?
+  userId         String?
+  
+  title          String
+  message        String
+  type           String    // work_order, maintenance, alert, inventory, system
+  priority       String    @default("medium")
+  
+  entityType     String?   // work_order, asset, part, etc.
+  entityId       String?
+  
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  
+  createdAt      DateTime  @default(now())
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ============================================================
+// AUDIT & SYSTEM
+// ============================================================
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  
+  action         String
+  entityType     String
+  entityId       String?
+  
+  oldValues      String?
+  newValues      String?
+  
+  ipAddress      String?
+  userAgent      String?
+  
+  createdAt      DateTime @default(now())
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User? @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, entityType])
+  @@map("audit_logs")
+}
+
+model Import {
+  id             String    @id @default(cuid())
+  organizationId String?
+  type           String    // assets, clients, parts, maintenance_plans, technicians
+  fileName       String
+  status         String    @default("pending") // pending, processing, completed, error
+  totalRows      Int?
+  successRows    Int?
+  errorRows      Int?
+  errors         String?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  importErrors   ImportError[]
+
+  @@map("imports")
+}
+
+model ImportError {
+  id       String @id @default(cuid())
+  importId String
+  row      Int
+  column   String?
+  message  String
+  data     String?
+
+  import   Import @relation(fields: [importId], references: [id])
+
+  @@map("import_errors")
+}
+
+model Signature {
+  id          String   @id @default(cuid())
+  workOrderId String?
+  userId      String?
+  type        String   // technician, client, supervisor
+  signedBy    String
+  signedAt    DateTime @default(now())
+  imageUrl    String?
+  ipAddress   String?
+
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id])
+  user        User? @relation(fields: [userId], references: [id])
+
+  @@map("signatures")
+}
+
+model QrCode {
+  id        String   @id @default(cuid())
+  assetId   String
+  code      String   @unique
+  url       String
+  createdAt DateTime @default(now())
+
+  asset     Asset @relation(fields: [assetId], references: [id])
+
+  @@map("qr_codes")
+}
+
+model OfflineSyncQueue {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // create, update, delete
+  entity    String
+  entityId  String?
+  data      String
+  status    String   @default("pending") // pending, synced, error
+  error     String?
+  createdAt DateTime @default(now())
+  syncedAt  DateTime?
+
+  @@map("offline_sync_queue")
+}
+
+model Report {
+  id             String    @id @default(cuid())
+  organizationId String?
+  name           String
+  type           String
+  params         String?
+  url            String?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@map("reports")
+}
