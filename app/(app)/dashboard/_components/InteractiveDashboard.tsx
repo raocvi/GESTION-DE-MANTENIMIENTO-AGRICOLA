@@ -1,18 +1,10 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { 
-  Tractor, 
-  AlertTriangle, 
-  TrendingUp, 
-  ClipboardList, 
-  X, 
-  Building2, 
-  DollarSign, 
-  Users, 
-  Clock, 
-  Award,
-  BarChart3
+import {
+  Tractor, AlertTriangle, TrendingUp, ClipboardList,
+  Building2, DollarSign, Users, Clock, Award, X,
+  ChevronDown, Activity, Zap, Target, BarChart2
 } from 'lucide-react'
 import { DashboardCharts } from './DashboardCharts'
 import { ClientDashboardCharts } from './ClientDashboardCharts'
@@ -25,430 +17,305 @@ interface InteractiveDashboardProps {
   clientsList: any[]
 }
 
-export function InteractiveDashboard({ 
-  orders, 
-  totalAssetsCount, 
-  clientsList 
-}: InteractiveDashboardProps) {
-  // Navigation tabs: 'company' | 'client' | 'tech'
-  const [activeTab, setActiveTab] = useState<'company' | 'client' | 'tech'>('company')
+const TABS = [
+  { id: 'company', label: 'General Compañía', icon: Activity },
+  { id: 'client',  label: 'Por Cliente',       icon: Building2 },
+  { id: 'tech',    label: 'Por Técnico',        icon: Users },
+] as const
 
-  // Cross-filtering States
-  const [selectedType, setSelectedType] = useState<string | null>(null)
-  const [selectedTech, setSelectedTech] = useState<string | null>(null)
-  const [delayedOnly, setDelayedOnly] = useState<boolean>(false)
-  const [activeOnly, setActiveOnly] = useState<boolean>(false)
+type TabId = typeof TABS[number]['id']
 
-  const now = useMemo(() => new Date(), [])
-
-  // Helper to check delay
-  const isOrderDelayed = (o: any) => {
-    if (o.status === 'closed' || o.status === 'completed') return false
-    if (!o.dueDate) return false
-    return new Date(o.dueDate) < now
+function KpiCard({
+  label, value, sub, icon: Icon, color = 'blue',
+  active = false, onClick, animate = false
+}: {
+  label: string; value: React.ReactNode; sub?: string
+  icon: React.ElementType; color?: 'blue' | 'red' | 'amber' | 'emerald' | 'violet' | 'indigo'
+  active?: boolean; onClick?: () => void; animate?: boolean
+}) {
+  const colorMap = {
+    blue:    { text: 'text-blue-600',    bg: 'bg-blue-50',    icon: '#0052cc', ring: '#bfdbfe' },
+    red:     { text: 'text-rose-600',    bg: 'bg-rose-50',    icon: '#f43f5e', ring: '#fecdd3' },
+    amber:   { text: 'text-amber-600',   bg: 'bg-amber-50',   icon: '#d97706', ring: '#fde68a' },
+    emerald: { text: 'text-emerald-600', bg: 'bg-emerald-50', icon: '#059669', ring: '#a7f3d0' },
+    violet:  { text: 'text-violet-600',  bg: 'bg-violet-50',  icon: '#7c3aed', ring: '#ddd6fe' },
+    indigo:  { text: 'text-indigo-600',  bg: 'bg-indigo-50',  icon: '#4f46e5', ring: '#c7d2fe' },
   }
-
-  // 1. Apply active cross-filters
-  const filteredOrders = useMemo(() => {
-    let result = [...orders]
-    
-    if (selectedType) {
-      result = result.filter(o => o.type === selectedType)
-    }
-    if (selectedTech) {
-      result = result.filter(o => o.assignedTo?.name === selectedTech)
-    }
-    if (delayedOnly) {
-      result = result.filter(o => isOrderDelayed(o))
-    }
-    if (activeOnly) {
-      result = result.filter(o => o.status !== 'closed' && o.status !== 'completed')
-    }
-
-    return result
-  }, [orders, selectedType, selectedTech, delayedOnly, activeOnly, now])
-
-  // 2. Metrics for Tab 1: Company
-  const companyMetrics = useMemo(() => {
-    const activeAssets = new Set(
-      filteredOrders
-        .filter(o => o.status !== 'closed' && o.status !== 'completed')
-        .map(o => o.asset?.id)
-        .filter(Boolean)
-    )
-
-    const delayedCount = filteredOrders.filter(o => isOrderDelayed(o)).length
-
-    let totalDelayDays = 0
-    let delayedOTsCount = 0
-
-    filteredOrders.forEach(o => {
-      if (!o.dueDate) return
-      const dueDate = new Date(o.dueDate)
-      let delay = 0
-      
-      if (o.status === 'closed' || o.status === 'completed') {
-        const closedDate = o.closedAt ? new Date(o.closedAt) : new Date(o.createdAt)
-        delay = differenceInDays(closedDate, dueDate)
-      } else {
-        delay = differenceInDays(now, dueDate)
-      }
-
-      if (delay > 0) {
-        totalDelayDays += delay
-        delayedOTsCount++
-      }
-    })
-
-    const avgDelay = delayedOTsCount > 0 ? totalDelayDays / delayedOTsCount : 0
-
-    return {
-      activeAssetsCount: activeAssets.size,
-      delayedCount,
-      avgDelay,
-      totalVolume: filteredOrders.length
-    }
-  }, [filteredOrders, now])
-
-  // 3. Metrics for Tab 2: Clients
-  const clientMetrics = useMemo(() => {
-    const activeClients = new Set(filteredOrders.map(o => o.client?.id || o.clientId).filter(Boolean))
-    const totalCost = filteredOrders.reduce((sum, o) => sum + (o.totalCost || 0), 0)
-    
-    // Find top client by volume
-    const clientCounts: Record<string, number> = {}
-    filteredOrders.forEach(o => {
-      const name = o.client?.name || 'Interno / Genérico'
-      clientCounts[name] = (clientCounts[name] || 0) + 1
-    })
-    const sortedClients = Object.entries(clientCounts).sort((a, b) => b[1] - a[1])
-    const topClientName = sortedClients[0]?.[0]?.replace('Agropecuaria ', '') || 'Ninguno'
-
-    return {
-      activeClientsCount: activeClients.size,
-      totalCost,
-      topClientName
-    }
-  }, [filteredOrders])
-
-  // 4. Metrics for Tab 3: Technicians
-  const techMetrics = useMemo(() => {
-    const activeTechs = new Set(filteredOrders.map(o => o.assignedTo?.id).filter(Boolean))
-    const totalActualHours = filteredOrders.reduce((sum, o) => sum + (o.actualHours || 0), 0)
-    
-    // Calculate overall MTTR (closure time) in days
-    const closed = filteredOrders.filter(o => o.status === 'closed' && o.closedAt)
-    let totalMTTRDays = 0
-    closed.forEach(o => {
-      const start = o.startedAt ? new Date(o.startedAt) : new Date(o.createdAt)
-      const end = new Date(o.closedAt)
-      totalMTTRDays += Math.max(1, differenceInDays(end, start))
-    })
-    const avgMTTR = closed.length > 0 ? totalMTTRDays / closed.length : 0
-
-    return {
-      activeTechsCount: activeTechs.size,
-      totalActualHours,
-      avgMTTR,
-      completedCount: closed.length
-    }
-  }, [filteredOrders])
-
-  // Clear all filters
-  const clearFilters = () => {
-    setSelectedType(null)
-    setSelectedTech(null)
-    setDelayedOnly(false)
-    setActiveOnly(false)
-  }
-
-  const hasActiveFilters = selectedType || selectedTech || delayedOnly || activeOnly
+  const c = colorMap[color]
 
   return (
-    <div className="space-y-4">
-            {/* HEADER & TABS IN A SINGLE COMPACT ROW */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3 gap-3">
-        <div>
-          <h2 className="text-xl font-extrabold text-slate-800">Dashboard Gerencial</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Panel analítico de operaciones, indicadores de retraso y desempeño — IMECOL S.A.S.
-          </p>
+    <div
+      onClick={onClick}
+      className={`kpi-card ${onClick ? 'interactive' : ''} ${active ? 'active' : ''} ${animate ? 'animate-count-up' : ''}`}
+    >
+      {/* Accent bar */}
+      <div
+        className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl transition-all"
+        style={{ background: active ? c.icon : 'transparent' }}
+      />
+
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2 truncate">{label}</p>
+          <div className="flex items-baseline gap-1.5">
+            <span className={`text-3xl font-black tracking-tight ${c.text}`}>{value}</span>
+          </div>
+          {sub && <p className="text-xs text-slate-400 font-medium mt-1">{sub}</p>}
         </div>
-        
-        {/* Navigation Tabs Selector */}
-        <div className="inline-flex rounded-xl border border-slate-200/60 bg-slate-100/80 p-1 shadow-sm text-xs select-none">
-          <button 
-            onClick={() => { setActiveTab('company'); clearFilters(); }}
-            className={`px-4 py-2 rounded-lg font-bold transition-all ${
-              activeTab === 'company' ? 'bg-white text-[#0052cc] shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            General Compañía
-          </button>
-          <button 
-            onClick={() => { setActiveTab('client'); clearFilters(); }}
-            className={`px-4 py-2 rounded-lg font-bold transition-all ${
-              activeTab === 'client' ? 'bg-white text-[#0052cc] shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Por Empresa Cliente
-          </button>
-          <button 
-            onClick={() => { setActiveTab('tech'); clearFilters(); }}
-            className={`px-4 py-2 rounded-lg font-bold transition-all ${
-              activeTab === 'tech' ? 'bg-white text-[#0052cc] shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Por Técnico
-          </button>
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ml-3 transition-all ${active ? '' : c.bg}`}
+          style={active ? { background: c.icon } : {}}
+        >
+          <Icon className={`h-5 w-5 ${active ? 'text-white' : c.text}`} />
         </div>
       </div>
 
-      {/* ACTIVE FILTERS BREADCRUMBS */}
-      {hasActiveFilters && (
-        <div className="flex flex-wrap items-center gap-2 p-2 bg-blue-50 border border-blue-100 rounded-xl text-xs font-semibold text-blue-850 shadow-sm animate-fade-in">
-          <span>Filtros activos:</span>
+      {onClick && (
+        <div className="mt-3 flex items-center gap-1 text-[10px] font-bold text-slate-300">
+          <Zap className="h-2.5 w-2.5" />
+          {active ? 'Filtro activo — clic para quitar' : 'Clic para filtrar dashboard'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function InteractiveDashboard({ orders, totalAssetsCount, clientsList }: InteractiveDashboardProps) {
+  const [activeTab, setActiveTab] = useState<TabId>('company')
+  const [selectedType, setSelectedType]   = useState<string | null>(null)
+  const [selectedTech, setSelectedTech]   = useState<string | null>(null)
+  const [delayedOnly, setDelayedOnly]     = useState(false)
+  const [activeOnly, setActiveOnly]       = useState(false)
+
+  const now = useMemo(() => new Date(), [])
+
+  const isOrderDelayed = (o: any) => {
+    if (o.status === 'closed' || o.status === 'completed') return false
+    return o.dueDate && new Date(o.dueDate) < now
+  }
+
+  const filteredOrders = useMemo(() => {
+    let r = [...orders]
+    if (selectedType) r = r.filter(o => o.type === selectedType)
+    if (selectedTech) r = r.filter(o => o.assignedTo?.name === selectedTech)
+    if (delayedOnly)  r = r.filter(o => isOrderDelayed(o))
+    if (activeOnly)   r = r.filter(o => o.status !== 'closed' && o.status !== 'completed')
+    return r
+  }, [orders, selectedType, selectedTech, delayedOnly, activeOnly])
+
+  const companyMetrics = useMemo(() => {
+    const activeAssets = new Set(
+      filteredOrders.filter(o => o.status !== 'closed' && o.status !== 'completed').map(o => o.asset?.id).filter(Boolean)
+    ).size
+    const delayedCount = filteredOrders.filter(isOrderDelayed).length
+    let totalDelayDays = 0, delayedOTsCount = 0
+    filteredOrders.forEach(o => {
+      if (!o.dueDate) return
+      const dueDate = new Date(o.dueDate)
+      const endDate = (o.status === 'closed' || o.status === 'completed')
+        ? (o.closedAt ? new Date(o.closedAt) : new Date(o.createdAt))
+        : now
+      const delay = differenceInDays(endDate, dueDate)
+      if (delay > 0) { totalDelayDays += delay; delayedOTsCount++ }
+    })
+    return {
+      activeAssetsCount: activeAssets, delayedCount,
+      avgDelay: delayedOTsCount > 0 ? totalDelayDays / delayedOTsCount : 0,
+      totalVolume: filteredOrders.length,
+    }
+  }, [filteredOrders])
+
+  const clientMetrics = useMemo(() => {
+    const activeClients = new Set(filteredOrders.map(o => o.client?.id || o.clientId).filter(Boolean)).size
+    const totalCost = filteredOrders.reduce((s, o) => s + (o.totalCost || 0), 0)
+    const clientCounts: Record<string, number> = {}
+    filteredOrders.forEach(o => {
+      const n = o.client?.name || 'Interno'
+      clientCounts[n] = (clientCounts[n] || 0) + 1
+    })
+    const topClientName = Object.entries(clientCounts).sort((a, b) => b[1] - a[1])[0]?.[0]?.replace('Agropecuaria ', '') || '—'
+    return { activeClientsCount: activeClients, totalCost, topClientName }
+  }, [filteredOrders])
+
+  const techMetrics = useMemo(() => {
+    const activeTechs = new Set(filteredOrders.map(o => o.assignedTo?.id).filter(Boolean)).size
+    const totalActualHours = filteredOrders.reduce((s, o) => s + (o.actualHours || 0), 0)
+    const closed = filteredOrders.filter(o => o.status === 'closed' && o.closedAt)
+    const avgMTTR = closed.length > 0
+      ? closed.reduce((s, o) => s + Math.max(1, differenceInDays(new Date(o.closedAt), o.startedAt ? new Date(o.startedAt) : new Date(o.createdAt))), 0) / closed.length
+      : 0
+    return { activeTechsCount: activeTechs, totalActualHours, avgMTTR, completedCount: closed.length }
+  }, [filteredOrders])
+
+  const clearFilters = () => { setSelectedType(null); setSelectedTech(null); setDelayedOnly(false); setActiveOnly(false) }
+  const hasFilters = selectedType || selectedTech || delayedOnly || activeOnly
+
+  return (
+    <div className="flex flex-col gap-5">
+
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <BarChart2 className="h-6 w-6 text-blue-600" />
+            Dashboard Gerencial
+          </h1>
+          <p className="text-sm text-slate-400 mt-0.5">Panel analítico en tiempo real — IMECOL S.A.S.</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 border border-slate-200/60">
+          {TABS.map(tab => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab(tab.id); clearFilters() }}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                  isActive
+                    ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-blue-500' : 'text-slate-400'}`} />
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Active filter bar ── */}
+      {hasFilters && (
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-50 border border-blue-100 animate-fade-in">
+          <span className="text-xs font-bold text-blue-700 flex items-center gap-1">
+            <Target className="h-3.5 w-3.5" /> Filtros activos:
+          </span>
           {selectedType && (
-            <span className="flex items-center gap-1 bg-white border border-blue-200 px-2 py-0.5 rounded-lg">
+            <span className="filter-chip active">
               Tipo: {selectedType === 'preventive' ? 'Preventivo' : selectedType === 'corrective' ? 'Correctivo' : 'Inspección'}
-              <X className="w-3 h-3 cursor-pointer text-slate-400 hover:text-red-500" onClick={() => setSelectedType(null)} />
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedType(null)} />
             </span>
           )}
           {selectedTech && (
-            <span className="flex items-center gap-1 bg-white border border-blue-200 px-2 py-0.5 rounded-lg">
+            <span className="filter-chip active">
               Técnico: {selectedTech}
-              <X className="w-3 h-3 cursor-pointer text-slate-400 hover:text-red-500" onClick={() => setSelectedTech(null)} />
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedTech(null)} />
             </span>
           )}
           {delayedOnly && (
-            <span className="flex items-center gap-1 bg-white border border-rose-200 px-2 py-0.5 rounded-lg text-rose-700 bg-rose-50/50">
-              Solo Retrasados
-              <X className="w-3 h-3 cursor-pointer text-slate-400 hover:text-red-500" onClick={() => setDelayedOnly(false)} />
+            <span className="filter-chip active !border-rose-200 !bg-rose-50 !text-rose-700">
+              Solo retrasados
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setDelayedOnly(false)} />
             </span>
           )}
           {activeOnly && (
-            <span className="flex items-center gap-1 bg-white border border-blue-200 px-2 py-0.5 rounded-lg">
-              Solo Activos
-              <X className="w-3 h-3 cursor-pointer text-slate-400 hover:text-red-500" onClick={() => setActiveOnly(false)} />
+            <span className="filter-chip active">
+              Solo activos
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setActiveOnly(false)} />
             </span>
           )}
-          <button 
+          <button
             onClick={clearFilters}
-            className="ml-auto bg-slate-900 text-white hover:bg-slate-800 px-3 py-1 rounded-lg text-[10px] transition-all hover:scale-[1.02]"
+            className="ml-auto text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
           >
-            Limpiar Filtros
+            Limpiar todo
           </button>
         </div>
       )}
 
-      {/* DYNAMIC METRIC CARDS BASED ON ACTIVE TAB */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {activeTab === 'company' && (
-          <>
-            {/* Card 1: EQUIPOS INTERVE            <div 
-              onClick={() => { setActiveOnly(!activeOnly); setDelayedOnly(false); }}
-              className={`bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between cursor-pointer select-none ${
-                activeOnly ? 'border-[#0052cc] ring-2 ring-blue-500/10' : 'border-slate-200/60'
-              }`}
-            >
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">EQUIPOS INTERVENIDOS</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-[#0052cc]">{companyMetrics.activeAssetsCount}</span>
-                  <span className="text-xs text-slate-450 font-bold ml-1">De {totalAssetsCount} equipos</span>
-                </div>
-              </div>
-              <div className={`p-2.5 rounded-xl transition-colors ${activeOnly ? 'bg-[#0052cc] text-white' : 'bg-blue-50 text-[#0052cc]'}`}>
-                <Tractor size={20} />
-              </div>
-            </div>
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
+        {activeTab === 'company' && (<>
+          <KpiCard
+            label="Equipos Intervenidos"
+            value={companyMetrics.activeAssetsCount}
+            sub={`De ${totalAssetsCount} activos totales`}
+            icon={Tractor} color="blue"
+            active={activeOnly} onClick={() => { setActiveOnly(v => !v); setDelayedOnly(false) }}
+          />
+          <KpiCard
+            label="Servicios Retrasados"
+            value={companyMetrics.delayedCount}
+            sub="OTs fuera de plazo"
+            icon={AlertTriangle} color="red"
+            active={delayedOnly} onClick={() => { setDelayedOnly(v => !v); setActiveOnly(false) }}
+          />
+          <KpiCard
+            label="Promedio Retraso"
+            value={`${companyMetrics.avgDelay.toFixed(1)}d`}
+            sub="Días por orden"
+            icon={TrendingUp} color="amber"
+          />
+          <KpiCard
+            label="Volumen Operativo"
+            value={companyMetrics.totalVolume}
+            sub="Servicios analizados"
+            icon={ClipboardList} color="emerald"
+            onClick={clearFilters}
+          />
+        </>)}
 
-            {/* Card 2: SERVICIOS RETRASADOS */}
-            <div 
-              onClick={() => { setDelayedOnly(!delayedOnly); setActiveOnly(false); }}
-              className={`bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between cursor-pointer select-none ${
-                delayedOnly ? 'border-rose-600 ring-2 ring-rose-500/10' : 'border-slate-200/60'
-              }`}
-            >
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">SERVICIOS RETRASADOS</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-rose-600">{companyMetrics.delayedCount}</span>
-                  <span className="text-xs text-slate-455 font-bold ml-1">OTs vencidas</span>
-                </div>
-              </div>
-              <div className={`p-2.5 rounded-xl transition-colors ${delayedOnly ? 'bg-rose-650 text-white' : 'bg-red-50 text-rose-600'}`}>
-                <AlertTriangle size={20} />
-              </div>
-            </div>
+        {activeTab === 'client' && (<>
+          <KpiCard
+            label="Clientes Activos"
+            value={clientMetrics.activeClientsCount}
+            sub={`De ${clientsList.length} clientes`}
+            icon={Building2} color="blue"
+          />
+          <KpiCard
+            label="Cliente Principal"
+            value={<span className="text-xl">{clientMetrics.topClientName}</span>}
+            sub="Mayor volumen de órdenes"
+            icon={Award} color="indigo"
+          />
+          <KpiCard
+            label="Inversión Total"
+            value={`$${(clientMetrics.totalCost / 1_000_000).toFixed(1)}M`}
+            sub="COP en mantenimiento"
+            icon={DollarSign} color="amber"
+          />
+          <KpiCard
+            label="Equipos en Servicio"
+            value={companyMetrics.activeAssetsCount}
+            sub="Activos con OT abierta"
+            icon={Tractor} color="emerald"
+          />
+        </>)}
 
-            {/* Card 3: PROMEDIO DE RETRASO */}
-            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">PROMEDIO DE RETRASO</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-amber-600">{companyMetrics.avgDelay.toFixed(1)}</span>
-                  <span className="text-xs text-slate-450 font-bold ml-1">Días por OT</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600">
-                <TrendingUp size={20} />
-              </div>
-            </div>
-
-            {/* Card 4: VOLUMEN OPERATIVO */}
-            <div 
-              onClick={clearFilters}
-              className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between cursor-pointer select-none"
-            >
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">VOLUMEN OPERATIVO</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-emerald-600">{companyMetrics.totalVolume}</span>
-                  <span className="text-xs text-slate-455 font-bold ml-1">Servicios analizados</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
-                <ClipboardList size={20} />
-              </div>
-            </div>
-          </>
-        )}
-
-        {activeTab === 'client' && (
-          <>
-            {/* Card 1: CLIENTES ACTIVOS */}
-            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">CLIENTES ACTIVOS</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-[#0052cc]">{clientMetrics.activeClientsCount}</span>
-                  <span className="text-xs text-slate-450 font-bold ml-1">De {clientsList.length} clientes</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-blue-50 text-[#0052cc]">
-                <Building2 size={20} />
-              </div>
-            </div>
-
-            {/* Card 2: CLIENTE PRINCIPAL */}
-            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">CLIENTE PRINCIPAL</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-sm font-black text-indigo-700 truncate max-w-[150px] inline-block" title={clientMetrics.topClientName}>
-                    {clientMetrics.topClientName}
-                  </span>
-                  <span className="text-[10px] text-slate-455 font-bold ml-1">Mayor volumen</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-650">
-                <Award size={20} />
-              </div>
-            </div>
-
-            {/* Card 3: INVERSIÓN TOTAL */}
-            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">INVERSIÓN TOTAL</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xl font-black text-amber-600">
-                    ${(clientMetrics.totalCost / 1000000).toFixed(1)}M
-                  </span>
-                  <span className="text-xs text-slate-450 font-bold ml-1">COP en costos</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-650">
-                <DollarSign size={20} />
-              </div>
-            </div>
-
-            {/* Card 4: EQUIPOS EN SERVICIO */}
-            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">EQUIPOS EN SERVICIO</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-emerald-600">{companyMetrics.activeAssetsCount}</span>
-                  <span className="text-xs text-slate-450 font-bold ml-1">Activos</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-650">
-                <Tractor size={20} />
-              </div>
-            </div>
-          </>
-        )}
-
-        {activeTab === 'tech' && (
-          <>
-            {/* Card 1: TÉCNICOS ACTIVOS */}
-            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">TÉCNICOS ACTIVOS</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-[#0052cc]">{techMetrics.activeTechsCount}</span>
-                  <span className="text-xs text-slate-450 font-bold ml-1">Asignados</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-blue-50 text-[#0052cc]">
-                <Users size={20} />
-              </div>
-            </div>
-
-            {/* Card 2: TIEMPO DE CIERRE (MTTR) */}
-            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">TIEMPO DE CIERRE (MTTR)</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-indigo-700">
-                    {techMetrics.avgMTTR.toFixed(1)}
-                  </span>
-                  <span className="text-xs text-slate-450 font-bold ml-1">Días promedio</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-650">
-                <Clock size={20} />
-              </div>
-            </div>
-
-            {/* Card 3: ÓRDENES CERRADAS */}
-            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">ÓRDENES CERRADAS</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-amber-600">{techMetrics.completedCount}</span>
-                  <span className="text-xs text-slate-450 font-bold ml-1">Servicios</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-650">
-                <Award size={20} />
-              </div>
-            </div>
-
-            {/* Card 4: TOTAL HORAS REALES */}
-            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">TOTAL HORAS REALES</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-emerald-600">
-                    {Math.round(techMetrics.totalActualHours)}h
-                  </span>
-                  <span className="text-xs text-slate-450 font-bold ml-1">Registradas</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-650">
-                <Clock size={20} />
-              </div>
-            </div>            </div>
-          </>
-        )}
+        {activeTab === 'tech' && (<>
+          <KpiCard
+            label="Técnicos Activos"
+            value={techMetrics.activeTechsCount}
+            sub="Con OTs asignadas"
+            icon={Users} color="blue"
+          />
+          <KpiCard
+            label="MTTR Promedio"
+            value={`${techMetrics.avgMTTR.toFixed(1)}d`}
+            sub="Días hasta cierre"
+            icon={Clock} color="indigo"
+          />
+          <KpiCard
+            label="Órdenes Cerradas"
+            value={techMetrics.completedCount}
+            sub="Servicios completados"
+            icon={Award} color="amber"
+          />
+          <KpiCard
+            label="Horas Registradas"
+            value={`${Math.round(techMetrics.totalActualHours)}h`}
+            sub="Tiempo real total"
+            icon={Clock} color="emerald"
+          />
+        </>)}
       </div>
 
-      {/* CHARTS CONTAINER RENDERED CONDITIONALLY */}
+      {/* ── Charts ── */}
       <div className="animate-fade-in">
         {activeTab === 'company' && (
-          <DashboardCharts 
+          <DashboardCharts
             orders={filteredOrders}
             selectedType={selectedType}
             onSelectType={setSelectedType}
@@ -456,16 +323,9 @@ export function InteractiveDashboard({
             onSelectTech={setSelectedTech}
           />
         )}
-        
-        {activeTab === 'client' && (
-          <ClientDashboardCharts orders={filteredOrders} />
-        )}
-        
-        {activeTab === 'tech' && (
-          <TechDashboardCharts orders={filteredOrders} />
-        )}
+        {activeTab === 'client' && <ClientDashboardCharts orders={filteredOrders} />}
+        {activeTab === 'tech' && <TechDashboardCharts orders={filteredOrders} />}
       </div>
-
     </div>
   )
 }

@@ -51,7 +51,7 @@ const kpis = [
     value: '7',
     description: 'Mantenimientos próximos',
     icon: <AlertTriangle className="h-5 w-5" />,
-    color: 'red' as const,
+    color: 'rose' as const,
   },
 ]
 

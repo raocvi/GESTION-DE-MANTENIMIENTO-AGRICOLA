@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { PageHeader } from '@core/components/shared/PageComponents'
 import { StatusBadge } from '@core/components/ui/badge'
 import { formatHours, formatDate } from '@core/lib/utils'
-import { Tractor, Plus, Search, Filter } from 'lucide-react'
+import { Tractor, Plus, Search, ArrowRight, Clock, AlertTriangle, CheckCircle2, Wrench, MapPin } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Equipos — AgroMaint Pro',
@@ -71,164 +70,163 @@ const demoAssets = [
   },
 ]
 
+const OPERATIVE_STATUS: Record<string, { label: string; cls: string; dot: string }> = {
+  operative:      { label: 'Operativo',         cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+  maintenance:    { label: 'En Mantenimiento',  cls: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500' },
+  out_of_service: { label: 'Fuera de Servicio', cls: 'bg-red-100 text-red-700',        dot: 'bg-red-500' },
+  warranty:       { label: 'En Garantía',       cls: 'bg-blue-100 text-blue-700',      dot: 'bg-blue-500' },
+  diagnosis:      { label: 'En Diagnóstico',    cls: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
+}
+
 export default function AssetsPage() {
+  const operativeCount = demoAssets.filter(a => a.operativeStatus === 'operative').length
+  const maintenanceCount = demoAssets.filter(a => a.operativeStatus === 'maintenance').length
+  const criticalCount = demoAssets.filter(a => {
+    const hrs = (a.nextService ?? 0) - (a.currentHours ?? 0)
+    return hrs < 100
+  }).length
+
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Equipos"
-        description={`${demoAssets.length} equipos registrados`}
-        actions={
-          <Link
-            href="/activos/nuevo"
-            id="btn-nuevo-equipo"
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Nuevo Equipo
-          </Link>
-        }
-      />
 
-      {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+      {/* Header */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-brand text-white shadow-md shrink-0">
+            <Tractor className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Equipos / Flota</h1>
+            <p className="text-sm text-slate-400 mt-0.5">{demoAssets.length} activos registrados — IMECOL S.A.S.</p>
+          </div>
+        </div>
+        <Link
+          href="/activos/nuevo"
+          className="inline-flex items-center gap-2 rounded-xl gradient-brand px-4 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-90 transition-all active:scale-[0.98]"
+        >
+          <Plus className="h-4 w-4" /> Nuevo Equipo
+        </Link>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="kpi-card">
+          <div className="flex items-center gap-2 text-3xl font-black text-emerald-600">
+            <CheckCircle2 className="h-6 w-6" />
+            {operativeCount}
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mt-2">Operativos</p>
+        </div>
+        <div className="kpi-card">
+          <div className="flex items-center gap-2 text-3xl font-black text-amber-600">
+            <Wrench className="h-6 w-6" />
+            {maintenanceCount}
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mt-2">En Mantenimiento</p>
+        </div>
+        <div className="kpi-card">
+          <div className="flex items-center gap-2 text-3xl font-black text-slate-700">
+            <Tractor className="h-6 w-6 text-slate-400" />
+            {demoAssets.length}
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mt-2">Total Activos</p>
+        </div>
+        <div className={`kpi-card ${criticalCount > 0 ? 'border-rose-200' : ''}`}>
+          <div className={`flex items-center gap-2 text-3xl font-black ${criticalCount > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
+            {criticalCount > 0 && <AlertTriangle className="h-6 w-6" />}
+            {criticalCount}
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mt-2">Críticos por Horas</p>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="flex gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
             type="search"
             placeholder="Buscar por código, serial, cliente..."
-            id="search-activos"
-            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm font-medium placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
           />
         </div>
-        <button
-          id="btn-filtros"
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-        >
-          <Filter className="h-4 w-4" aria-hidden />
-          Filtros
-        </button>
-      </div>
-
-      {/* KPIs rápidos */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: 'Operativos', value: '21', color: 'text-emerald-600 bg-emerald-50', border: 'border-emerald-200' },
-          { label: 'Mantenimiento', value: '3', color: 'text-amber-600 bg-amber-50', border: 'border-amber-200' },
-          { label: 'Fuera servicio', value: '0', color: 'text-red-600 bg-red-50', border: 'border-red-200' },
-          { label: 'Críticos x horas', value: '5', color: 'text-orange-600 bg-orange-50', border: 'border-orange-200' },
-        ].map((kpi) => (
-          <div
-            key={kpi.label}
-            className={`rounded-xl border ${kpi.border} ${kpi.color} p-3 text-center`}
-          >
-            <p className="text-2xl font-bold">{kpi.value}</p>
-            <p className="text-xs font-medium opacity-75">{kpi.label}</p>
-          </div>
+        {['Todos', 'Operativo', 'Mantenimiento', 'Crítico'].map(f => (
+          <button key={f} className={`filter-chip ${f === 'Todos' ? 'active' : ''}`}>{f}</button>
         ))}
       </div>
 
-      {/* Tabla de equipos */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-sm" role="table" aria-label="Lista de equipos">
+      {/* Table */}
+      <div className="chart-card overflow-hidden">
+        <table className="data-table">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left">
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Código / Equipo
-              </th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Estado
-              </th>
-              <th className="hidden px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell">
-                Cliente
-              </th>
-              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Horómetro
-              </th>
-              <th className="hidden px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 lg:table-cell">
-                Próx. Mant.
-              </th>
-              <th className="hidden px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell">
-                Último serv.
-              </th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Acciones
-              </th>
+            <tr>
+              <th>Código / Equipo</th>
+              <th>Estado</th>
+              <th className="hidden md:table-cell">Cliente / Ubicación</th>
+              <th className="text-right">Horómetro</th>
+              <th className="hidden lg:table-cell text-right">Próx. Mant.</th>
+              <th className="hidden md:table-cell">Último Serv.</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {demoAssets.map((asset) => {
               const hoursToNext = (asset.nextService ?? 0) - (asset.currentHours ?? 0)
-              const urgency = hoursToNext < 100 ? 'text-red-600' : hoursToNext < 250 ? 'text-amber-600' : 'text-slate-600'
+              const isOverdue  = hoursToNext <= 0
+              const isCritical = hoursToNext > 0 && hoursToNext < 100
+              const isWarning  = hoursToNext >= 100 && hoursToNext < 250
+              const st = OPERATIVE_STATUS[asset.operativeStatus] || { label: asset.statusLabel, cls: 'bg-slate-100 text-slate-700', dot: 'bg-slate-400' }
 
               return (
-                <tr
-                  key={asset.id}
-                  className="group transition-colors hover:bg-slate-50"
-                >
-                  {/* Código / Equipo */}
-                  <td className="px-4 py-3">
+                <tr key={asset.id} className={isOverdue ? 'bg-rose-50/30' : ''}>
+                  <td>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-                        <Tractor className="h-4 w-4 text-blue-600" aria-hidden />
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${st.cls} text-sm`}>
+                        <Tractor className="h-4 w-4" />
                       </div>
                       <div>
-                        <Link
-                          href={`/activos/${asset.id}`}
-                          className="font-medium text-slate-900 hover:text-blue-600"
-                        >
+                        <Link href={`/activos/${asset.id}`} className="font-bold text-slate-900 hover:text-blue-600 transition-colors">
                           {asset.internalCode}
                         </Link>
-                        <p className="text-xs text-slate-500">
-                          {asset.brand} {asset.model} · S/N {asset.serialNumber}
-                        </p>
+                        <p className="text-xs text-slate-400">{asset.brand} {asset.model} · S/N {asset.serialNumber}</p>
                       </div>
                     </div>
                   </td>
-                  {/* Estado */}
-                  <td className="px-4 py-3">
-                    <StatusBadge
-                      status={asset.operativeStatus}
-                      label={asset.statusLabel}
-                    />
+                  <td>
+                    <span className={`status-pill ${st.cls}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                      {st.label}
+                    </span>
                   </td>
-                  {/* Cliente */}
-                  <td className="hidden px-4 py-3 md:table-cell">
-                    <p className="text-sm text-slate-700">{asset.client}</p>
-                    <p className="text-xs text-slate-400">
+                  <td className="hidden md:table-cell">
+                    <p className="text-sm font-medium text-slate-700">{asset.client}</p>
+                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                      <MapPin className="h-3 w-3" />
                       {asset.city}, {asset.department}
                     </p>
                   </td>
-                  {/* Horómetro */}
-                  <td className="px-4 py-3 text-right font-mono text-sm text-slate-700">
-                    {formatHours(asset.currentHours)}
+                  <td className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                      <span className="font-mono font-bold text-slate-700 text-sm">{formatHours(asset.currentHours)}</span>
+                    </div>
                   </td>
-                  {/* Próximo mantenimiento */}
-                  <td className={`hidden px-4 py-3 text-right font-mono text-sm lg:table-cell ${urgency}`}>
-                    {formatHours(asset.nextService)}
-                    <span className="block text-xs">
-                      ({hoursToNext > 0 ? `faltan ${hoursToNext}h` : 'VENCIDO'})
-                    </span>
+                  <td className="hidden lg:table-cell text-right">
+                    <div className={`text-sm font-mono font-bold ${isOverdue ? 'text-rose-600' : isCritical ? 'text-rose-500' : isWarning ? 'text-amber-500' : 'text-slate-600'}`}>
+                      {formatHours(asset.nextService)}
+                    </div>
+                    <div className={`text-xs mt-0.5 font-bold flex items-center justify-end gap-1 ${isOverdue ? 'text-rose-600' : isCritical ? 'text-rose-500' : isWarning ? 'text-amber-500' : 'text-slate-400'}`}>
+                      {isOverdue && <AlertTriangle className="h-3 w-3" />}
+                      {isOverdue ? 'VENCIDO' : `faltan ${hoursToNext}h`}
+                    </div>
                   </td>
-                  {/* Último servicio */}
-                  <td className="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">
+                  <td className="hidden md:table-cell text-xs text-slate-400">
                     {formatDate(asset.lastService)}
                   </td>
-                  {/* Acciones */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Link
-                        href={`/activos/${asset.id}`}
-                        className="rounded-md px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
-                        id={`btn-ver-${asset.id}`}
-                      >
-                        Ver
-                      </Link>
-                      <Link
-                        href={`/ordenes/nueva?assetId=${asset.id}`}
-                        className="rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-                        id={`btn-ot-${asset.id}`}
-                      >
-                        Nueva OT
+                  <td>
+                    <div className="flex items-center gap-1">
+                      <Link href={`/activos/${asset.id}`} className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                        Ver <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
                   </td>

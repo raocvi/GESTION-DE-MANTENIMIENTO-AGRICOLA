@@ -3,107 +3,109 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Tractor, CalendarDays, Package, LineChart, Plus, HelpCircle, LifeBuoy } from 'lucide-react'
+import {
+  LayoutDashboard, Tractor, ClipboardList, Package,
+  Users, Building2, BarChart3, Settings, Plus,
+  HelpCircle, Wrench, ChevronRight
+} from 'lucide-react'
+
+const navGroups = [
+  {
+    label: 'Principal',
+    items: [
+      { label: 'Dashboard',       href: '/dashboard', icon: LayoutDashboard, match: (p: string) => p === '/dashboard' || p.startsWith('/dashboard/') },
+      { label: 'Órdenes de Trabajo', href: '/ordenes', icon: ClipboardList,  match: (p: string) => p.startsWith('/ordenes') },
+      { label: 'Activos / Flota', href: '/activos',  icon: Tractor,         match: (p: string) => p.startsWith('/activos') },
+    ]
+  },
+  {
+    label: 'Gestión',
+    items: [
+      { label: 'Clientes',        href: '/clientes',  icon: Building2,  match: (p: string) => p.startsWith('/clientes') },
+      { label: 'Técnicos',        href: '/tecnicos',  icon: Users,      match: (p: string) => p.startsWith('/tecnicos') },
+      { label: 'Planes Preventivos', href: '/planes', icon: Wrench,     match: (p: string) => p.startsWith('/planes') },
+      { label: 'Repuestos',       href: '/solicitudes', icon: Package,   match: (p: string) => p.startsWith('/solicitudes') },
+    ]
+  },
+  {
+    label: 'Análisis',
+    items: [
+      { label: 'Reportes',        href: '/proyectos', icon: BarChart3,  match: (p: string) => p.startsWith('/proyectos') },
+      { label: 'Configuración',   href: '/configuracion', icon: Settings, match: (p: string) => p.startsWith('/configuracion') },
+    ]
+  },
+]
 
 export function SideNavigation() {
   const pathname = usePathname() || ''
 
-  const navItems = [
-    {
-      label: 'Overview',
-      href: '/dashboard',
-      icon: LayoutDashboard,
-      isActive: pathname === '/dashboard' || pathname.startsWith('/dashboard/'),
-    },
-    {
-      label: 'Assets',
-      href: '/activos',
-      icon: Tractor,
-      isActive: pathname.startsWith('/activos'),
-    },
-    {
-      label: 'Schedule',
-      href: '/ordenes',
-      icon: CalendarDays,
-      isActive: pathname.startsWith('/ordenes') && !pathname.endsWith('/nueva'),
-    },
-    {
-      label: 'Inventory',
-      href: '/tecnicos',
-      icon: Package,
-      isActive: pathname.startsWith('/tecnicos'),
-    },
-    {
-      label: 'Analytics',
-      href: '/clientes',
-      icon: LineChart,
-      isActive: pathname.startsWith('/clientes') || pathname.startsWith('/proyectos'),
-    },
-  ]
-
   return (
-    <aside className="flex w-64 shrink-0 flex-col justify-between border-r border-slate-200/80 bg-[#f8fafc] h-[calc(100vh-4rem)]">
-      <div className="flex flex-col py-6 px-4">
-        {/* Company Info */}
-        <div className="mb-8 flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0052cc] text-white font-black text-lg shadow-md shadow-blue-600/10">
-            I
+    <aside
+      className="flex w-64 shrink-0 flex-col justify-between h-[calc(100vh-3.5rem)] overflow-y-auto"
+      style={{ background: 'var(--sidebar-bg)', boxShadow: '4px 0 24px rgba(0,0,0,0.15)' }}
+    >
+      {/* Company brand */}
+      <div className="flex flex-col flex-1 py-5 px-3">
+        <div className="flex items-center gap-3 px-2 mb-6">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl gradient-brand text-white font-black text-base shadow-lg">
+            AM
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-extrabold text-slate-800 leading-tight">IMECOL S.A.S.</span>
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">FLEET MANAGEMENT</span>
+          <div>
+            <span className="text-sm font-bold text-white leading-tight block">IMECOL S.A.S.</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--sidebar-text)' }}>
+              AgroMaint Pro
+            </span>
           </div>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="flex flex-col gap-1.5">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all border ${
-                  item.isActive
-                    ? 'bg-blue-50 border-blue-100/40 text-[#0052cc]'
-                    : 'border-transparent text-slate-600 hover:border-dashed hover:border-blue-400/80 hover:bg-blue-50/20 hover:text-[#0052cc]'
-                }`}
-              >
-                <Icon className={`h-5 w-5 ${item.isActive ? 'text-[#0052cc]' : 'text-slate-400'}`} />
-                {item.label}
-              </Link>
-            )
-          })}
+        {/* Nav groups */}
+        <nav className="flex flex-col gap-5 flex-1">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#4b6280' }}>
+                {group.label}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {group.items.map((item) => {
+                  const isActive = item.match(pathname)
+                  const Icon = item.icon
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`nav-item ${isActive ? 'active' : ''}`}
+                    >
+                      <Icon className={`nav-icon h-4 w-4 shrink-0 ${isActive ? 'text-blue-400' : 'text-slate-500'}`} />
+                      <span className="flex-1 text-[13px]">{item.label}</span>
+                      {isActive && <ChevronRight className="h-3 w-3 text-blue-400 shrink-0" />}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        {/* New Work Order Button */}
-        <div className="mt-8 px-1">
+        {/* CTA Button */}
+        <div className="mt-6 px-1">
           <Link
             href="/ordenes/nueva"
-            id="btn-sidebar-new-order"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0052cc] px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-600/15 hover:bg-blue-700 transition-all hover:scale-[1.01]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] gradient-brand shadow-lg"
           >
-            <Plus className="h-5 w-5" />
-            New Work Order
+            <Plus className="h-4 w-4" />
+            Nueva OT
           </Link>
         </div>
       </div>
 
-      {/* Footer Links */}
-      <div className="flex flex-col gap-1 p-4 border-t border-slate-200/50 bg-[#f8fafc]/50">
-        <Link 
-          href="/help" 
-          className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
+      {/* Footer */}
+      <div className="px-3 py-4" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+        <Link
+          href="/help"
+          className="nav-item text-xs"
         >
-          <HelpCircle className="h-4 w-4 text-slate-400" />
-          Help Center
-        </Link>
-        <Link 
-          href="/support" 
-          className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
-        >
-          <LifeBuoy className="h-4 w-4 text-slate-400" />
-          Support
+          <HelpCircle className="h-4 w-4 text-slate-500" />
+          Centro de ayuda
         </Link>
       </div>
     </aside>

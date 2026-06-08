@@ -1,496 +1,362 @@
 import React, { useMemo } from 'react'
-import { 
-  PieChart, 
-  Pie, 
-  Cell, 
-  ResponsiveContainer, 
-  Tooltip, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid,
-  AreaChart,
-  Area,
-  Legend
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area, Legend
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@core/components/ui/card'
 import { differenceInDays } from 'date-fns'
+import { Info } from 'lucide-react'
 
-// Color Palettes
-const PIE_COLORS = ['#0052cc', '#b91c1c', '#10b981'] // Brand Blue (Preventive), Red (Corrective), Green (Inspection)
-const BAR_COLORS = ['#b91c1c', '#854d0e', '#a16207', '#0052cc', '#1e3a8a'] // Red, Gold, Bronze, Blue, Navy
-const PRIORITY_COLORS: Record<string, string> = {
-  critical: '#e11d48', // Red
-  high: '#f97316',     // Orange
-  medium: '#eab308',   // Yellow
-  low: '#3b82f6'       // Blue
+// ── Palettes ──────────────────────────────────────────────
+const TYPE_COLORS   = ['#0052cc', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#84cc16', '#ec4899']
+const PRIO_COLORS: Record<string, string> = {
+  critical: '#f43f5e', high: '#f97316', medium: '#f59e0b', low: '#3b82f6'
+}
+const AREA_COLORS   = { abiertas: '#3b82f6', cerradas: '#10b981' }
+const BAR_COLORS    = ['#f43f5e', '#f97316', '#f59e0b', '#0052cc', '#8b5cf6']
+
+const TYPE_LABELS: Record<string, string> = {
+  preventive:    'Preventivo',   corrective:    'Correctivo',   inspection: 'Inspección',
+  predictive:    'Predictivo',   warranty:      'Garantía',      emergency:  'Emergencia',
+  campaign:      'Campaña',      predelivery:   'Alistamiento', seasonal_pre: 'Pretemporada',
+  seasonal_post: 'Posttemporada', daily_operator: 'Rev. Diaria',
+}
+const PRIO_LABELS: Record<string, string> = {
+  critical: 'Crítica', high: 'Alta', medium: 'Media', low: 'Baja'
+}
+
+// ── Custom Tooltip ─────────────────────────────────────────
+const ChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white px-3 py-2 shadow-modal text-xs font-semibold text-slate-700">
+      {label && <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>}
+      {payload.map((p: any, i: number) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ background: p.color || p.fill }} />
+          <span>{p.name}:</span>
+          <span className="font-black">{p.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Chart Section Header ───────────────────────────────────
+function ChartHeader({ title, description, hint }: { title: string; description: string; hint?: string }) {
+  return (
+    <div className="flex items-start justify-between px-5 pt-5 pb-3 border-b border-slate-50">
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-600">{title}</h3>
+        <p className="text-[11px] text-slate-400 mt-0.5">{description}</p>
+      </div>
+      {hint && (
+        <div className="flex items-center gap-1 text-[10px] text-slate-300 font-medium mt-0.5 shrink-0">
+          <Info className="h-3 w-3" /> {hint}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Empty State ────────────────────────────────────────────
+function EmptyChart({ msg = 'Sin datos disponibles' }: { msg?: string }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-300">
+      <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center">
+        <Info className="h-4 w-4" />
+      </div>
+      <p className="text-xs font-semibold">{msg}</p>
+    </div>
+  )
 }
 
 interface DashboardChartsProps {
   orders: any[]
   selectedType: string | null
-  onSelectType: (type: string | null) => void
+  onSelectType: (t: string | null) => void
   selectedTech: string | null
-  onSelectTech: (techName: string | null) => void
+  onSelectTech: (t: string | null) => void
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  preventive: 'Preventivo',
-  corrective: 'Correctivo',
-  inspection: 'Inspección',
-  predictive: 'Predictivo',
-  warranty: 'Garantía',
-  emergency: 'Emergencia',
-  campaign: 'Campaña',
-  predelivery: 'Alistamiento',
-  seasonal_pre: 'Rev. Pretemporada',
-  seasonal_post: 'Rev. Posttemporada',
-  daily_operator: 'Rev. Diaria'
-}
+export function DashboardCharts({ orders, selectedType, onSelectType, selectedTech, onSelectTech }: DashboardChartsProps) {
 
-const PRIORITY_LABELS: Record<string, string> = {
-  critical: 'Crítica',
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Baja'
-}
-
-export function DashboardCharts({ 
-  orders, 
-  selectedType, 
-  onSelectType,
-  selectedTech,
-  onSelectTech
-}: DashboardChartsProps) {
-  
-  // 1. Donut Chart Data: Type Distribution
+  // 1. Type distribution (donut)
   const pieData = useMemo(() => {
     const counts: Record<string, number> = {}
-    orders.forEach(o => {
-      counts[o.type] = (counts[o.type] || 0) + 1
-    })
-    
-    const total = orders.length || 1
-    return Object.entries(counts).map(([type, value]) => ({
-      type,
-      name: TYPE_LABELS[type] || type,
-      value,
-      percentage: Math.round((value / total) * 100)
-    })).sort((a, b) => b.value - a.value)
-  }, [orders])
-
-  // 2. Bar Chart Data (Delay Days per Technician)
-  const barData = useMemo(() => {
-    const techDelays: Record<string, { totalDays: number; count: number }> = {}
-    const now = new Date()
-
-    orders.forEach(o => {
-      if (o.assignedTo?.name && o.dueDate) {
-        const dueDate = new Date(o.dueDate)
-        let delay = 0
-        
-        if (o.status === 'closed' || o.status === 'completed') {
-          const closedDate = o.closedAt ? new Date(o.closedAt) : new Date(o.createdAt)
-          delay = differenceInDays(closedDate, dueDate)
-        } else {
-          delay = differenceInDays(now, dueDate)
-        }
-
-        if (delay > 0) {
-          if (!techDelays[o.assignedTo.name]) {
-            techDelays[o.assignedTo.name] = { totalDays: 0, count: 0 }
-          }
-          techDelays[o.assignedTo.name].totalDays += delay
-          techDelays[o.assignedTo.name].count += 1
-        }
-      }
-    })
-
-    return Object.entries(techDelays)
-      .map(([name, data]) => ({
-        name: name.split(' ').slice(0, 2).join(' '), // Short name
-        fullName: name,
-        days: parseFloat(data.totalDays.toFixed(1))
-      }))
-      .sort((a, b) => b.days - a.days)
-      .slice(0, 5) // Top 5
-  }, [orders])
-
-  // 3. New Donut Chart: Priority Distribution
-  const priorityData = useMemo(() => {
-    const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 }
-    orders.forEach(o => {
-      const p = o.priority ? o.priority.toLowerCase() : 'medium'
-      counts[p] = (counts[p] || 0) + 1
-    })
-
+    orders.forEach(o => { counts[o.type] = (counts[o.type] || 0) + 1 })
     const total = orders.length || 1
     return Object.entries(counts)
-      .filter(([_, value]) => value > 0)
-      .map(([priority, value]) => ({
-        priority,
-        name: PRIORITY_LABELS[priority] || priority,
-        value,
-        percentage: Math.round((value / total) * 100)
-      }))
+      .map(([type, value]) => ({ type, name: TYPE_LABELS[type] || type, value, pct: Math.round((value / total) * 100) }))
+      .sort((a, b) => b.value - a.value)
   }, [orders])
 
-  // 4. New Horizontal Bar Chart: Top 5 Failing/Corrective Assets
+  // 2. Delay days by tech (bar)
+  const barData = useMemo(() => {
+    const now = new Date()
+    const map: Record<string, { total: number; count: number; fullName: string }> = {}
+    orders.forEach(o => {
+      if (!o.assignedTo?.name || !o.dueDate) return
+      const due = new Date(o.dueDate)
+      const end = (o.status === 'closed' || o.status === 'completed')
+        ? (o.closedAt ? new Date(o.closedAt) : new Date(o.createdAt)) : now
+      const delay = differenceInDays(end, due)
+      if (delay > 0) {
+        const k = o.assignedTo.name
+        if (!map[k]) map[k] = { total: 0, count: 0, fullName: k }
+        map[k].total += delay; map[k].count++
+      }
+    })
+    return Object.entries(map)
+      .map(([_, d]) => ({ name: d.fullName.split(' ').slice(0, 2).join(' '), fullName: d.fullName, days: parseFloat(d.total.toFixed(1)) }))
+      .sort((a, b) => b.days - a.days).slice(0, 5)
+  }, [orders])
+
+  // 3. Priority donut
+  const priorityData = useMemo(() => {
+    const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 }
+    orders.forEach(o => { const p = (o.priority || 'medium').toLowerCase(); counts[p] = (counts[p] || 0) + 1 })
+    const total = orders.length || 1
+    return Object.entries(counts).filter(([, v]) => v > 0)
+      .map(([priority, value]) => ({ priority, name: PRIO_LABELS[priority] || priority, value, pct: Math.round((value / total) * 100) }))
+  }, [orders])
+
+  // 4. Top failing assets (horizontal bar)
   const assetData = useMemo(() => {
-    const assetCounts: Record<string, number> = {}
-    
-    // Count corrective work orders per asset
+    const counts: Record<string, number> = {}
     orders.filter(o => o.type === 'corrective').forEach(o => {
       const code = o.asset?.internalCode || 'Sin Código'
-      assetCounts[code] = (assetCounts[code] || 0) + 1
+      counts[code] = (counts[code] || 0) + 1
     })
-
-    return Object.entries(assetCounts)
-      .map(([code, count]) => ({
-        code,
-        Correctivas: count
-      }))
-      .sort((a, b) => b.Correctivas - a.Correctivas)
-      .slice(0, 5)
+    return Object.entries(counts).map(([code, n]) => ({ code, Correctivas: n }))
+      .sort((a, b) => b.Correctivas - a.Correctivas).slice(0, 5)
   }, [orders])
 
-  // 5. Bottom Trend Chart (Last 6 Months)
+  // 5. 6-month trend (area)
   const trendData = useMemo(() => {
-    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-    const last6: { year: number; monthIndex: number; name: string; Abiertas: number; Cerradas: number }[] = []
+    const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
     const now = new Date()
-
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      last6.push({
-        year: d.getFullYear(),
-        monthIndex: d.getMonth(),
-        name: `${months[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`,
-        Abiertas: 0,
-        Cerradas: 0
-      })
-    }
-
+    const data = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+      return { year: d.getFullYear(), month: d.getMonth(), name: `${months[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`, Abiertas: 0, Cerradas: 0 }
+    })
     orders.forEach(o => {
-      const createdDate = new Date(o.createdAt)
-      const closedDate = o.closedAt ? new Date(o.closedAt) : null
-
-      last6.forEach(m => {
-        if (createdDate.getFullYear() === m.year && createdDate.getMonth() === m.monthIndex) {
-          m.Abiertas++
-        }
-        if (closedDate && closedDate.getFullYear() === m.year && closedDate.getMonth() === m.monthIndex) {
-          m.Cerradas++
-        }
+      const c = new Date(o.createdAt), cl = o.closedAt ? new Date(o.closedAt) : null
+      data.forEach(m => {
+        if (c.getFullYear() === m.year && c.getMonth() === m.month) m.Abiertas++
+        if (cl && cl.getFullYear() === m.year && cl.getMonth() === m.month) m.Cerradas++
       })
     })
+    return data
+  }, [orders])
 
-    return last6
+  // 6. Status distribution (bar)
+  const statusData = useMemo(() => {
+    const STATUS_LABEL: Record<string, string> = {
+      new: 'Nueva', in_progress: 'En ejecución', closed: 'Cerrada',
+      assigned: 'Asignada', scheduled: 'Programada', paused: 'Pausada',
+      pending_parts: 'Pend. repuestos', cancelled: 'Cancelada'
+    }
+    const counts: Record<string, number> = {}
+    orders.forEach(o => { const k = STATUS_LABEL[o.status] || o.status; counts[k] = (counts[k] || 0) + 1 })
+    return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6)
   }, [orders])
 
   return (
-    <div className="space-y-5">
-      {/* ROW 1: 3 Column Grid for Compact Distribution Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        
-        {/* Chart 1: Donut (Servicios por Tipo) */}
-        <Card className="hover-lift soft-shadow border-slate-200/60 overflow-hidden bg-white">
-          <CardHeader className="py-2.5 px-4">
-            <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Órdenes por Tipo</CardTitle>
-            <CardDescription className="text-[10px] text-slate-400 font-medium">Distribución por tipo de mantenimiento</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-3 pt-0">
-            <div className="flex flex-col h-[200px]">
-              <div className="flex-1 relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={75}
-                      paddingAngle={2}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {pieData.map((entry, index) => {
-                        const isSelected = selectedType === entry.type
-                        return (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={PIE_COLORS[index % PIE_COLORS.length]} 
-                            onClick={() => onSelectType(selectedType === entry.type ? null : entry.type)}
-                            className={`hover:opacity-85 transition-all cursor-pointer outline-none ${
-                              selectedType && !isSelected ? 'opacity-30' : 'opacity-100'
-                            }`} 
-                          />
-                        )
-                      })}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: any, name: any, props: any) => [
-                        `${value} (${props.payload.percentage}%)`, 
-                        name
-                      ]}
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px', padding: '6px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xl font-black text-slate-800 tracking-tighter">100%</span>
-                  <span className="text-[8px] text-slate-400 font-bold tracking-widest uppercase">TOTAL</span>
-                </div>
-              </div>
-              
-              <div className="flex justify-center gap-x-3 flex-wrap text-[10px] font-semibold mt-2">
-                {pieData.map((item, index) => (
-                  <div key={item.type} className="flex items-center gap-1">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
-                    <span className="text-slate-600">{item.name} ({item.percentage}%)</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="space-y-4">
 
-        {/* Chart 2: Bars (Retraso por Técnico) */}
-        <Card className="hover-lift soft-shadow border-slate-200/60 overflow-hidden bg-white">
-          <CardHeader className="py-2.5 px-4">
-            <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Retrasos por Responsable</CardTitle>
-            <CardDescription className="text-[10px] text-slate-400 font-medium">Días acumulados de retraso</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-3 pt-0">
-            <div className="h-[200px] w-full">
-              {barData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} margin={{ top: 20, right: 5, left: -25, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false}
-                      tickLine={false} 
-                      tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }} 
-                    />
-                    <YAxis hide={true} />
-                    <Tooltip 
-                      formatter={(value) => [`${value} días`, 'Retraso']}
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px', padding: '6px' }}
-                    />
-                    <Bar 
-                      dataKey="days" 
-                      radius={[3, 3, 0, 0]} 
-                      barSize={24}
-                      label={{ 
-                        position: 'top', 
-                        fill: '#b91c1c', 
-                        fontSize: 10, 
-                        fontWeight: 700, 
-                        formatter: (v: any) => `${v} d`,
-                        dy: -5 
-                      }}
-                    >
-                      {barData.map((entry, index) => {
-                        const isSelected = selectedTech === entry.fullName
-                        return (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={BAR_COLORS[index % BAR_COLORS.length]} 
-                            onClick={() => onSelectTech(selectedTech === entry.fullName ? null : entry.fullName)}
-                            className={`hover:opacity-85 cursor-pointer transition-all ${
-                              selectedTech && !isSelected ? 'opacity-30' : 'opacity-100'
-                            }`}
-                          />
-                        )
-                      })}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-[10px] text-slate-400">
-                  No hay órdenes retrasadas.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Row 1: Donut + Bar + Donut */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-        {/* Chart 3: Donut (Distribución por Prioridad) - NEW */}
-        <Card className="hover-lift soft-shadow border-slate-200/60 overflow-hidden bg-white">
-          <CardHeader className="py-2.5 px-4">
-            <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Órdenes por Prioridad</CardTitle>
-            <CardDescription className="text-[10px] text-slate-400 font-medium">Clasificación por severidad operativa</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-3 pt-0">
-            <div className="flex flex-col h-[200px]">
-              <div className="flex-1 relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={priorityData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={75}
-                      paddingAngle={2}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {priorityData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-p-${index}`} 
-                          fill={PRIORITY_COLORS[entry.priority] || '#94a3b8'} 
-                          className="hover:opacity-85 outline-none" 
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: any, name: any, props: any) => [
-                        `${value} (${props.payload.percentage}%)`, 
-                        name
-                      ]}
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px', padding: '6px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xs font-black text-slate-400 tracking-wider">PRIORIDAD</span>
-                </div>
-              </div>
-              
-              <div className="flex justify-center gap-x-3 flex-wrap text-[10px] font-semibold mt-2">
-                {priorityData.map((item) => (
-                  <div key={item.priority} className="flex items-center gap-1">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PRIORITY_COLORS[item.priority] }} />
-                    <span className="text-slate-600">{item.name} ({item.percentage}%)</span>
-                  </div>
-                ))}
+        {/* Chart 1: Órdenes por Tipo */}
+        <div className="chart-card">
+          <ChartHeader title="Órdenes por Tipo" description="Distribución por categoría" hint="Clic = filtrar" />
+          <div className="p-4">
+            <div className="relative h-[190px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={2} dataKey="value" stroke="none">
+                    {pieData.map((entry, i) => (
+                      <Cell
+                        key={i} fill={TYPE_COLORS[i % TYPE_COLORS.length]}
+                        onClick={() => onSelectType(selectedType === entry.type ? null : entry.type)}
+                        className="cursor-pointer transition-all"
+                        opacity={selectedType && selectedType !== entry.type ? 0.25 : 1}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl font-black text-slate-800">{orders.length}</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">órdenes</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex flex-col gap-1.5 mt-2">
+              {pieData.slice(0, 4).map((item, i) => (
+                <div
+                  key={item.type}
+                  className={`flex items-center justify-between text-[11px] rounded-lg px-2 py-1 cursor-pointer transition-all ${selectedType === item.type ? 'bg-blue-50 font-bold' : 'hover:bg-slate-50'}`}
+                  onClick={() => onSelectType(selectedType === item.type ? null : item.type)}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full" style={{ background: TYPE_COLORS[i % TYPE_COLORS.length] }} />
+                    <span className="text-slate-600 font-medium">{item.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800">{item.value}</span>
+                    <span className="text-slate-400 w-7 text-right">{item.pct}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Chart 2: Retrasos por Técnico */}
+        <div className="chart-card">
+          <ChartHeader title="Retrasos por Técnico" description="Días acumulados fuera de plazo" hint="Clic = filtrar" />
+          <div className="p-4 h-[290px]">
+            {barData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} />
+                  <YAxis hide />
+                  <Tooltip content={<ChartTooltip />} formatter={(v) => [`${v} días`, 'Retraso']} />
+                  <Bar dataKey="days" radius={[4, 4, 0, 0]} barSize={28}
+                    label={{ position: 'top', fill: '#f43f5e', fontSize: 10, fontWeight: 700, formatter: (v: any) => `${v}d`, dy: -4 }}
+                  >
+                    {barData.map((entry, i) => (
+                      <Cell
+                        key={i} fill={BAR_COLORS[i % BAR_COLORS.length]}
+                        onClick={() => onSelectTech(selectedTech === entry.fullName ? null : entry.fullName)}
+                        className="cursor-pointer transition-all"
+                        opacity={selectedTech && selectedTech !== entry.fullName ? 0.25 : 1}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <EmptyChart msg="No hay órdenes retrasadas" />}
+          </div>
+        </div>
+
+        {/* Chart 3: Prioridades */}
+        <div className="chart-card">
+          <ChartHeader title="Órdenes por Prioridad" description="Clasificación por severidad operativa" />
+          <div className="p-4">
+            <div className="relative h-[190px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={priorityData} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={2} dataKey="value" stroke="none">
+                    {priorityData.map((entry, i) => (
+                      <Cell key={i} fill={PRIO_COLORS[entry.priority] || '#94a3b8'} className="transition-all" />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Prioridad</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 mt-2">
+              {priorityData.map((item) => (
+                <div key={item.priority} className="flex items-center justify-between text-[11px] rounded-lg px-2 py-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full" style={{ background: PRIO_COLORS[item.priority] }} />
+                    <span className="text-slate-600 font-medium">{item.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800">{item.value}</span>
+                    <span className="text-slate-400 w-7 text-right">{item.pct}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* ROW 2: 2 Column Grid (Wide Trend & Top Failing Assets) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-        
-        {/* Chart 4: Wide Trend Line/Area (8 cols) */}
-        <Card className="md:col-span-8 hover-lift soft-shadow border-slate-200/60 overflow-hidden bg-white">
-          <CardHeader className="py-2.5 px-4">
-            <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Tendencia de Servicios (Últimos 6 Meses)</CardTitle>
-            <CardDescription className="text-[10px] text-slate-400 font-medium">Comparativa de volumen de órdenes abiertas vs cerradas</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-3 pt-0">
-            <div className="h-[210px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorAbiertas" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorCerradas" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
-                  />
-                  <YAxis 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 10 }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px', padding: '6px' }}
-                  />
-                  <Legend 
-                    verticalAlign="top" 
-                    height={25} 
-                    iconType="circle"
-                    iconSize={6}
-                    wrapperStyle={{ fontSize: '10px', fontWeight: 600, color: '#334155', marginTop: '-10px' }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="Abiertas" 
-                    stroke="#3b82f6" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorAbiertas)" 
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="Cerradas" 
-                    stroke="#10b981" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorCerradas)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Row 2: Trend + Assets + Status */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
 
-        {/* Chart 5: Horizontal Bar Chart of Assets Failures (4 cols) - NEW */}
-        <Card className="md:col-span-4 hover-lift soft-shadow border-slate-200/60 overflow-hidden bg-white">
-          <CardHeader className="py-2.5 px-4">
-            <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Equipos con Más Correctivos</CardTitle>
-            <CardDescription className="text-[10px] text-slate-400 font-medium">Top 5 equipos por frecuencia de falla</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-3 pt-0">
-            <div className="h-[210px] w-full">
-              {assetData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart 
-                    data={assetData} 
-                    layout="vertical"
-                    margin={{ top: 10, right: 25, left: -20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                    <XAxis type="number" hide={true} />
-                    <YAxis 
-                      dataKey="code" 
-                      type="category" 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: '#475569', fontSize: 10, fontWeight: 700 }}
-                    />
-                    <Tooltip 
-                      formatter={(value) => [`${value} correctivas`, 'Servicios Correctivos']}
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px', padding: '6px' }}
-                    />
-                    <Bar 
-                      dataKey="Correctivas" 
-                      fill="#8b5cf6" // Violet bar
-                      radius={[0, 3, 3, 0]} 
-                      barSize={18}
-                      label={{ 
-                        position: 'right', 
-                        fill: '#6d28d9', 
-                        fontSize: 10, 
-                        fontWeight: 700,
-                        dx: 5
-                      }}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-[10px] text-slate-400">
-                  No hay fallas registradas.
-                </div>
-              )}
+        {/* Chart 4: Tendencia 6 meses */}
+        <div className="chart-card md:col-span-5">
+          <ChartHeader title="Tendencia de Servicios" description="Últimos 6 meses — órdenes abiertas vs cerradas" />
+          <div className="p-4 h-[240px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradAbiertas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={AREA_COLORS.abiertas} stopOpacity={0.18} />
+                    <stop offset="95%" stopColor={AREA_COLORS.abiertas} stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gradCerradas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={AREA_COLORS.cerradas} stopOpacity={0.18} />
+                    <stop offset="95%" stopColor={AREA_COLORS.cerradas} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                <Tooltip content={<ChartTooltip />} />
+                <Legend verticalAlign="top" height={28} iconType="circle" iconSize={6}
+                  wrapperStyle={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }} />
+                <Area type="monotone" dataKey="Abiertas" stroke={AREA_COLORS.abiertas} strokeWidth={2} fill="url(#gradAbiertas)" />
+                <Area type="monotone" dataKey="Cerradas" stroke={AREA_COLORS.cerradas} strokeWidth={2} fill="url(#gradCerradas)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 5: Equipos con más correctivos */}
+        <div className="chart-card md:col-span-4">
+          <ChartHeader title="Equipos Críticos" description="Top 5 por frecuencia de falla correctiva" />
+          <div className="p-4 h-[240px]">
+            {assetData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={assetData} layout="vertical" margin={{ top: 5, right: 30, left: -10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="code" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} width={80} />
+                  <Tooltip content={<ChartTooltip />} formatter={(v) => [`${v}`, 'Correctivas']} />
+                  <Bar dataKey="Correctivas" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={18}
+                    label={{ position: 'right', fill: '#7c3aed', fontSize: 10, fontWeight: 700, dx: 4 }} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <EmptyChart msg="No hay fallas registradas" />}
+          </div>
+        </div>
+
+        {/* Chart 6: Distribución por estado */}
+        <div className="chart-card md:col-span-3">
+          <ChartHeader title="Por Estado" description="Distribución de estados actuales" />
+          <div className="p-4">
+            <div className="flex flex-col gap-2">
+              {statusData.map((item, i) => {
+                const max = statusData[0]?.value || 1
+                const pct = Math.round((item.value / max) * 100)
+                return (
+                  <div key={item.name} className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="font-semibold text-slate-600 truncate max-w-[120px]">{item.name}</span>
+                      <span className="font-black text-slate-800">{item.value}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, background: TYPE_COLORS[i % TYPE_COLORS.length] }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
       </div>
     </div>
