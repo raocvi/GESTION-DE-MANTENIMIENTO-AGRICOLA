@@ -166,40 +166,37 @@ export function InteractiveDashboard({
 
   return (
     <div className="space-y-4">
-      
-      {/* HEADER & TABS IN A SINGLE COMPACT ROW */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-2 gap-3">
+            {/* HEADER & TABS IN A SINGLE COMPACT ROW */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3 gap-3">
         <div>
-          <h1 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-600" /> Dashboard Gerencial
-          </h1>
-          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-            IMECOL S.A.S. — Flota & Mantenimiento
+          <h2 className="text-xl font-extrabold text-slate-800">Dashboard Gerencial</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Panel analítico de operaciones, indicadores de retraso y desempeño — IMECOL S.A.S.
           </p>
         </div>
         
         {/* Navigation Tabs Selector */}
-        <div className="inline-flex rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-sm text-xs select-none">
+        <div className="inline-flex rounded-xl border border-slate-200/60 bg-slate-100/80 p-1 shadow-sm text-xs select-none">
           <button 
             onClick={() => { setActiveTab('company'); clearFilters(); }}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-              activeTab === 'company' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800'
+            className={`px-4 py-2 rounded-lg font-bold transition-all ${
+              activeTab === 'company' ? 'bg-white text-[#0052cc] shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             General Compañía
           </button>
           <button 
             onClick={() => { setActiveTab('client'); clearFilters(); }}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-              activeTab === 'client' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800'
+            className={`px-4 py-2 rounded-lg font-bold transition-all ${
+              activeTab === 'client' ? 'bg-white text-[#0052cc] shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             Por Empresa Cliente
           </button>
           <button 
             onClick={() => { setActiveTab('tech'); clearFilters(); }}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-              activeTab === 'tech' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800'
+            className={`px-4 py-2 rounded-lg font-bold transition-all ${
+              activeTab === 'tech' ? 'bg-white text-[#0052cc] shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             Por Técnico
@@ -209,7 +206,7 @@ export function InteractiveDashboard({
 
       {/* ACTIVE FILTERS BREADCRUMBS */}
       {hasActiveFilters && (
-        <div className="flex flex-wrap items-center gap-2 p-2 bg-blue-50 border border-blue-100 rounded-xl text-xs font-semibold text-blue-800 shadow-sm animate-fade-in">
+        <div className="flex flex-wrap items-center gap-2 p-2 bg-blue-50 border border-blue-100 rounded-xl text-xs font-semibold text-blue-850 shadow-sm animate-fade-in">
           <span>Filtros activos:</span>
           {selectedType && (
             <span className="flex items-center gap-1 bg-white border border-blue-200 px-2 py-0.5 rounded-lg">
@@ -249,72 +246,71 @@ export function InteractiveDashboard({
         
         {activeTab === 'company' && (
           <>
-            {/* Card 1: EQUIPOS INTERVENIDOS */}
-            <div 
+            {/* Card 1: EQUIPOS INTERVE            <div 
               onClick={() => { setActiveOnly(!activeOnly); setDelayedOnly(false); }}
-              className={`bg-white rounded-xl border p-3.5 shadow-sm hover:shadow-md transition-all flex items-center justify-between cursor-pointer select-none ${
-                activeOnly ? 'border-blue-600 ring-2 ring-blue-500/10' : 'border-slate-200/80'
+              className={`bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between cursor-pointer select-none ${
+                activeOnly ? 'border-[#0052cc] ring-2 ring-blue-500/10' : 'border-slate-200/60'
               }`}
             >
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Equipos Intervenidos</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">EQUIPOS INTERVENIDOS</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-slate-800">{companyMetrics.activeAssetsCount}</span>
-                  <span className="text-[10px] text-slate-500 font-bold">De {totalAssetsCount}</span>
+                  <span className="text-2xl font-black text-[#0052cc]">{companyMetrics.activeAssetsCount}</span>
+                  <span className="text-xs text-slate-450 font-bold ml-1">De {totalAssetsCount} equipos</span>
                 </div>
               </div>
-              <div className={`p-2 rounded-xl transition-colors ${activeOnly ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
-                <Tractor size={18} />
+              <div className={`p-2.5 rounded-xl transition-colors ${activeOnly ? 'bg-[#0052cc] text-white' : 'bg-blue-50 text-[#0052cc]'}`}>
+                <Tractor size={20} />
               </div>
             </div>
 
             {/* Card 2: SERVICIOS RETRASADOS */}
             <div 
               onClick={() => { setDelayedOnly(!delayedOnly); setActiveOnly(false); }}
-              className={`bg-white rounded-xl border p-3.5 shadow-sm hover:shadow-md transition-all flex items-center justify-between cursor-pointer select-none ${
-                delayedOnly ? 'border-rose-600 ring-2 ring-rose-500/10' : 'border-slate-200/80'
+              className={`bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between cursor-pointer select-none ${
+                delayedOnly ? 'border-rose-600 ring-2 ring-rose-500/10' : 'border-slate-200/60'
               }`}
             >
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Servicios Retrasados</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">SERVICIOS RETRASADOS</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-rose-600">{companyMetrics.delayedCount}</span>
-                  <span className="text-[10px] text-slate-500 font-bold">OTs vencidas</span>
+                  <span className="text-2xl font-black text-rose-600">{companyMetrics.delayedCount}</span>
+                  <span className="text-xs text-slate-455 font-bold ml-1">OTs vencidas</span>
                 </div>
               </div>
-              <div className={`p-2 rounded-xl transition-colors ${delayedOnly ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-600'}`}>
-                <AlertTriangle size={18} />
+              <div className={`p-2.5 rounded-xl transition-colors ${delayedOnly ? 'bg-rose-650 text-white' : 'bg-red-50 text-rose-600'}`}>
+                <AlertTriangle size={20} />
               </div>
             </div>
 
             {/* Card 3: PROMEDIO DE RETRASO */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm flex items-center justify-between select-none">
+            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Promedio de Retraso</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">PROMEDIO DE RETRASO</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-amber-700">{companyMetrics.avgDelay.toFixed(1)}</span>
-                  <span className="text-[10px] text-slate-500 font-bold">Días por OT</span>
+                  <span className="text-2xl font-black text-amber-600">{companyMetrics.avgDelay.toFixed(1)}</span>
+                  <span className="text-xs text-slate-450 font-bold ml-1">Días por OT</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                <TrendingUp size={18} />
+              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600">
+                <TrendingUp size={20} />
               </div>
             </div>
 
             {/* Card 4: VOLUMEN OPERATIVO */}
             <div 
               onClick={clearFilters}
-              className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm hover:shadow-md transition-all flex items-center justify-between cursor-pointer select-none"
+              className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between cursor-pointer select-none"
             >
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Volumen Operativo</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">VOLUMEN OPERATIVO</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-emerald-700">{companyMetrics.totalVolume}</span>
-                  <span className="text-[10px] text-slate-500 font-bold">Servicios analizados</span>
+                  <span className="text-2xl font-black text-emerald-600">{companyMetrics.totalVolume}</span>
+                  <span className="text-xs text-slate-455 font-bold ml-1">Servicios analizados</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-                <ClipboardList size={18} />
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
+                <ClipboardList size={20} />
               </div>
             </div>
           </>
@@ -323,62 +319,62 @@ export function InteractiveDashboard({
         {activeTab === 'client' && (
           <>
             {/* Card 1: CLIENTES ACTIVOS */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm flex items-center justify-between select-none">
+            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Clientes Activos</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">CLIENTES ACTIVOS</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-slate-800">{clientMetrics.activeClientsCount}</span>
-                  <span className="text-[10px] text-slate-500 font-bold">De {clientsList.length} clientes</span>
+                  <span className="text-2xl font-black text-[#0052cc]">{clientMetrics.activeClientsCount}</span>
+                  <span className="text-xs text-slate-450 font-bold ml-1">De {clientsList.length} clientes</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                <Building2 size={18} />
+              <div className="p-2.5 rounded-xl bg-blue-50 text-[#0052cc]">
+                <Building2 size={20} />
               </div>
             </div>
 
-            {/* Card 2: CLIENTE CON MAYOR OPERACIÓN */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm flex items-center justify-between select-none">
+            {/* Card 2: CLIENTE PRINCIPAL */}
+            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Cliente Principal</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">CLIENTE PRINCIPAL</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-[11px] font-black text-indigo-700 truncate max-w-[150px] inline-block" title={clientMetrics.topClientName}>
+                  <span className="text-sm font-black text-indigo-700 truncate max-w-[150px] inline-block" title={clientMetrics.topClientName}>
                     {clientMetrics.topClientName}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-bold">Mayor volumen</span>
+                  <span className="text-[10px] text-slate-455 font-bold ml-1">Mayor volumen</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-                <Award size={18} />
+              <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-650">
+                <Award size={20} />
               </div>
             </div>
 
-            {/* Card 3: INVERSIÓN TOTAL DE MANTENIMIENTO */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm flex items-center justify-between select-none">
+            {/* Card 3: INVERSIÓN TOTAL */}
+            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Inversión Total</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">INVERSIÓN TOTAL</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-sm font-black text-amber-700">
+                  <span className="text-xl font-black text-amber-600">
                     ${(clientMetrics.totalCost / 1000000).toFixed(1)}M
                   </span>
-                  <span className="text-[10px] text-slate-500 font-bold">COP en costos</span>
+                  <span className="text-xs text-slate-450 font-bold ml-1">COP en costos</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                <DollarSign size={18} />
+              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-650">
+                <DollarSign size={20} />
               </div>
             </div>
 
-            {/* Card 4: EQUIPOS ACTIVOS EN CLIENTE */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm flex items-center justify-between select-none">
+            {/* Card 4: EQUIPOS EN SERVICIO */}
+            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Equipos en Servicio</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">EQUIPOS EN SERVICIO</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-emerald-700">{companyMetrics.activeAssetsCount}</span>
-                  <span className="text-[10px] text-slate-500 font-bold">Equipos activos</span>
+                  <span className="text-2xl font-black text-emerald-600">{companyMetrics.activeAssetsCount}</span>
+                  <span className="text-xs text-slate-450 font-bold ml-1">Activos</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-                <Tractor size={18} />
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-650">
+                <Tractor size={20} />
               </div>
             </div>
           </>
@@ -387,67 +383,66 @@ export function InteractiveDashboard({
         {activeTab === 'tech' && (
           <>
             {/* Card 1: TÉCNICOS ACTIVOS */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm flex items-center justify-between select-none">
+            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Técnicos Activos</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">TÉCNICOS ACTIVOS</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-slate-800">{techMetrics.activeTechsCount}</span>
-                  <span className="text-[10px] text-slate-500 font-bold">Con órdenes asignadas</span>
+                  <span className="text-2xl font-black text-[#0052cc]">{techMetrics.activeTechsCount}</span>
+                  <span className="text-xs text-slate-450 font-bold ml-1">Asignados</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                <Users size={18} />
+              <div className="p-2.5 rounded-xl bg-blue-50 text-[#0052cc]">
+                <Users size={20} />
               </div>
             </div>
 
-            {/* Card 2: TIEMPO PROMEDIO RESOLUCIÓN (MTTR) */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm flex items-center justify-between select-none">
+            {/* Card 2: TIEMPO DE CIERRE (MTTR) */}
+            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Tiempo de Cierre (MTTR)</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">TIEMPO DE CIERRE (MTTR)</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-indigo-700">
+                  <span className="text-2xl font-black text-indigo-700">
                     {techMetrics.avgMTTR.toFixed(1)}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-bold">Días promedio</span>
+                  <span className="text-xs text-slate-450 font-bold ml-1">Días promedio</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-                <Clock size={18} />
+              <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-650">
+                <Clock size={20} />
               </div>
             </div>
 
-            {/* Card 3: ÓRDENES COMPLETADAS */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm flex items-center justify-between select-none">
+            {/* Card 3: ÓRDENES CERRADAS */}
+            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Órdenes Cerradas</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">ÓRDENES CERRADAS</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-amber-700">{techMetrics.completedCount}</span>
-                  <span className="text-[10px] text-slate-500 font-bold">Servicios terminados</span>
+                  <span className="text-2xl font-black text-amber-600">{techMetrics.completedCount}</span>
+                  <span className="text-xs text-slate-450 font-bold ml-1">Servicios</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                <Award size={18} />
+              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-650">
+                <Award size={20} />
               </div>
             </div>
 
-            {/* Card 4: HORAS TOTALES TRABAJADAS */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-sm flex items-center justify-between select-none">
+            {/* Card 4: TOTAL HORAS REALES */}
+            <div className="bg-white rounded-xl border border-slate-200/60 p-4 shadow-sm flex items-center justify-between select-none">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Total Horas Reales</span>
+                <span className="text-[11px] font-extrabold text-slate-500 tracking-wider uppercase block mb-1.5">TOTAL HORAS REALES</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-lg font-black text-emerald-700">
+                  <span className="text-2xl font-black text-emerald-600">
                     {Math.round(techMetrics.totalActualHours)}h
                   </span>
-                  <span className="text-[10px] text-slate-500 font-bold">Registradas</span>
+                  <span className="text-xs text-slate-450 font-bold ml-1">Registradas</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-                <Clock size={18} />
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-650">
+                <Clock size={20} />
               </div>
-            </div>
+            </div>            </div>
           </>
         )}
-
       </div>
 
       {/* CHARTS CONTAINER RENDERED CONDITIONALLY */}

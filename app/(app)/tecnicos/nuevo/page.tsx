@@ -15,9 +15,15 @@ export default function NewTechnicianPage() {
         <h1 className="mt-2 text-2xl font-bold text-slate-900">Nuevo Técnico</h1>
       </div>
       <form action={createTechnician} className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Nombre completo *</label>
-          <input name="name" required placeholder="Carlos Gómez" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre completo (Persona Real) *</label>
+            <input name="name" required placeholder="Carlos Gómez" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Código de Técnico Interno</label>
+            <input name="internalCode" placeholder="TECH-045" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -34,9 +40,15 @@ export default function NewTechnicianPage() {
             </select>
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Cargo / Posición</label>
-          <input name="position" placeholder="Técnico de Campo CASE IH" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Cargo / Posición</label>
+            <input name="position" placeholder="Técnico de Campo CASE IH" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Años de Experiencia</label>
+            <input name="yearsOfExperience" type="number" defaultValue="0" min="0" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -61,17 +73,17 @@ export default function NewTechnicianPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Especialidad(es) - JSON</label>
-            <input name="specialty" defaultValue="[]" placeholder='["Mecánica", "Sistemas Hidráulicos"]' className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Especialidad(es) (Separadas por comas)</label>
+            <input name="specialty" placeholder="Mecánica, Sistemas Hidráulicos" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Cursos Realizados (Formato JSON array)</label>
-          <textarea name="courses" defaultValue="[]" placeholder='["Curso Avanzado Case IH", "Mantenimiento Hidráulico 101"]' className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" rows={3} />
+          <label className="block text-sm font-medium text-slate-700 mb-1">Cursos Realizados (Separados por comas)</label>
+          <textarea name="courses" placeholder="Curso Avanzado Case IH, Mantenimiento Hidráulico 101" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" rows={2} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Certificaciones Obtenidas (Formato JSON array)</label>
-          <textarea name="certifications" defaultValue="[]" placeholder='["Certificación ISO 9001", "Certificado de Trabajo en Alturas"]' className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" rows={3} />
+          <label className="block text-sm font-medium text-slate-700 mb-1">Certificaciones Obtenidas (Separadas por comas)</label>
+          <textarea name="certifications" placeholder="Certificación ISO 9001, Certificado de Trabajo en Alturas" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" rows={2} />
         </div>
         <div className="flex gap-3 pt-2">
           <button type="submit" className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700">Guardar Técnico</button>

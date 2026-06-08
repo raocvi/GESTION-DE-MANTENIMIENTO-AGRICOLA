@@ -43,8 +43,18 @@ export default async function TechniciansPage() {
                     {tech.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900 group-hover:text-blue-600">{tech.name}</p>
-                    <p className="text-xs text-slate-500">{tech.position ?? 'Técnico de Campo'}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-semibold text-slate-900 group-hover:text-blue-600">{tech.name}</p>
+                      {tech.internalCode && (
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-650">
+                          {tech.internalCode}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {tech.position ?? 'Técnico de Campo'}
+                      {tech.yearsOfExperience ? ` · ${tech.yearsOfExperience} años exp` : ''}
+                    </p>
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between">

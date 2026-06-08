@@ -843,6 +843,8 @@ model Technician {
   organizationId String
   userId         String?
   name           String
+  internalCode   String?
+  yearsOfExperience Int?      @default(0)
   document       String?
   position       String?
   specialty      String?  @default("[]")

@@ -18,8 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@core
 import { differenceInDays } from 'date-fns'
 
 // Color Palettes
-const PIE_COLORS = ['#0284c7', '#b91c1c', '#0f766e'] // Blue (Preventive), Red (Corrective), Green (Inspection)
-const BAR_COLORS = ['#b91c1c', '#854d0e', '#7c2d12', '#0250c3', '#003ba1'] // Red, Gold, Bronze, Blue, Navy
+const PIE_COLORS = ['#0052cc', '#b91c1c', '#10b981'] // Brand Blue (Preventive), Red (Corrective), Green (Inspection)
+const BAR_COLORS = ['#b91c1c', '#854d0e', '#a16207', '#0052cc', '#1e3a8a'] // Red, Gold, Bronze, Blue, Navy
 const PRIORITY_COLORS: Record<string, string> = {
   critical: '#e11d48', // Red
   high: '#f97316',     // Orange
