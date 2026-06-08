@@ -1,194 +1,160 @@
 'use client'
 
-import { useState, useRef, useTransition } from 'react'
-import { format, differenceInDays, addDays, min, max } from 'date-fns'
+import { useState, useRef, useTransition, useMemo } from 'react'
+import { format, differenceInDays, addDays, min, max, isToday, isBefore } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { 
-  updateTaskDetails, 
-  toggleProjectSubtask, 
-  createProjectSubtask 
-} from '@modules/M04_work_orders/actions'
-import { 
-  CheckCircle2, 
-  Circle, 
-  Clock, 
-  User, 
-  ChevronRight, 
-  ChevronDown, 
-  Maximize2, 
-  Minimize2, 
-  Calendar, 
-  X, 
-  Plus, 
-  ChevronLeft, 
-  Edit3, 
-  Info,
-  Sliders,
-  Check
+import { updateTaskDetails, toggleProjectSubtask, createProjectSubtask } from '@modules/M04_work_orders/actions'
+import {
+  CheckCircle2, Circle, Clock, User, ChevronRight, ChevronDown,
+  Maximize2, Minimize2, Calendar, X, Plus, ChevronLeft,
+  Edit3, Info, Check, Sliders, AlertTriangle, Zap
 } from 'lucide-react'
 
-interface Technician {
-  id: string
-  name: string
-  email?: string | null
-}
-
-interface Subtask {
-  id: string
-  name: string
-  isCompleted: boolean
-}
-
+interface Technician { id: string; name: string; email?: string | null }
+interface Subtask    { id: string; name: string; isCompleted: boolean }
 interface Task {
-  id: string
-  name: string
-  startDate: Date | string | null
-  endDate: Date | string | null
-  progress: number
-  technician?: { name: string } | null
-  technicianId?: string | null
-  status: string
-  estimatedHours?: number | null
-  notes?: string | null
+  id: string; name: string
+  startDate: Date | string | null; endDate: Date | string | null
+  progress: number; status: string
+  technician?: { name: string } | null; technicianId?: string | null
+  estimatedHours?: number | null; notes?: string | null
   subtasks?: Subtask[]
 }
 
-export function InteractiveGantt({ 
-  tasks: initialTasks, 
-  technicians 
-}: { 
-  tasks: Task[]
-  technicians: Technician[] 
-}) {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks)
+// ── Color de barra según progreso / estado ─────────────────────────────────────
+function barStyle(task: Task): { bg: string; fill: string; text: string } {
+  if (task.progress === 100 || task.status === 'completed')
+    return { bg: 'bg-emerald-500', fill: 'bg-emerald-300/40', text: 'text-white' }
+  if (task.status === 'paused')
+    return { bg: 'bg-orange-400', fill: 'bg-orange-200/40', text: 'text-white' }
+  if ((task.endDate && isBefore(new Date(task.endDate), new Date())) && task.progress < 100)
+    return { bg: 'bg-rose-500',  fill: 'bg-rose-300/40',   text: 'text-white' }
+  if (task.progress > 0)
+    return { bg: 'bg-blue-500',  fill: 'bg-blue-300/40',   text: 'text-white' }
+  return   { bg: 'bg-slate-400', fill: 'bg-slate-200/40',  text: 'text-white' }
+}
+
+// ── Label del input ────────────────────────────────────────────────────────────
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">{children}</p>
+}
+
+function inputCls(extra = '') {
+  return `w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-700 font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all shadow-sm ${extra}`
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+export function InteractiveGantt({ tasks: initialTasks, technicians }: { tasks: Task[]; technicians: Technician[] }) {
+  const [tasks, setTasks]             = useState<Task[]>(initialTasks)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [zoom, setZoom] = useState<'days' | 'weeks'>('days')
+  const [zoom, setZoom]               = useState<'days' | 'weeks'>('days')
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({})
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  
-  // States for Edit Modal Form
-  const [editName, setEditName] = useState('')
-  const [editTechId, setEditTechId] = useState('')
-  const [editProgress, setEditProgress] = useState(0)
-  const [editStatus, setEditStatus] = useState('')
+  const [selectedTask, setSelectedTask]   = useState<Task | null>(null)
+  const [hoveredBar, setHoveredBar]       = useState<string | null>(null)
+
+  const [editName, setEditName]           = useState('')
+  const [editTechId, setEditTechId]       = useState('')
+  const [editProgress, setEditProgress]   = useState(0)
+  const [editStatus, setEditStatus]       = useState('')
   const [editStartDate, setEditStartDate] = useState('')
-  const [editEndDate, setEditEndDate] = useState('')
-  const [editHours, setEditHours] = useState(0)
-  const [editNotes, setEditNotes] = useState('')
+  const [editEndDate, setEditEndDate]     = useState('')
+  const [editHours, setEditHours]         = useState(0)
+  const [editNotes, setEditNotes]         = useState('')
   const [newSubtaskName, setNewSubtaskName] = useState('')
-  
+
   const [isPending, startTransition] = useTransition()
   const timelineRef = useRef<HTMLDivElement>(null)
 
-  const toggleTask = (id: string) => {
+  const toggleTask = (id: string) =>
     setExpandedTasks(prev => ({ ...prev, [id]: !prev[id] }))
+
+  const scrollTimeline = (dir: 'left' | 'right') => {
+    timelineRef.current?.scrollBy({ left: dir === 'left' ? -280 : 280, behavior: 'smooth' })
   }
 
-  // Scroll controls for timeline
-  const scrollTimeline = (direction: 'left' | 'right') => {
-    if (timelineRef.current) {
-      const scrollAmount = direction === 'left' ? -250 : 250
-      timelineRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+  // ── Date calculations ─────────────────────────────────────────────────────
+  const { chartStart, chartEnd, totalDays, dayWidth } = useMemo(() => {
+    const validStarts = tasks.map(t => t.startDate ? new Date(t.startDate) : null).filter((d): d is Date => d !== null && !isNaN(d.getTime()))
+    const validEnds   = tasks.map(t => t.endDate   ? new Date(t.endDate)   : null).filter((d): d is Date => d !== null && !isNaN(d.getTime()))
+    if (!validStarts.length || !validEnds.length) return { chartStart: new Date(), chartEnd: new Date(), totalDays: 30, dayWidth: 40 }
+    const pStart = min(validStarts)
+    const pEnd   = max(validEnds)
+    const start  = addDays(pStart, zoom === 'days' ? -2 : -7)
+    const end    = addDays(pEnd,   zoom === 'days' ?  7 : 14)
+    return { chartStart: start, chartEnd: end, totalDays: Math.max(1, differenceInDays(end, start)), dayWidth: zoom === 'days' ? 44 : 12 }
+  }, [tasks, zoom])
+
+  // ── Today offset ──────────────────────────────────────────────────────────
+  const todayOffset = useMemo(() => {
+    const d = differenceInDays(new Date(), chartStart)
+    if (d < 0 || d > totalDays) return null
+    return d * dayWidth
+  }, [chartStart, totalDays, dayWidth])
+
+  // ── Header columns ────────────────────────────────────────────────────────
+  const headerCols = useMemo(() => {
+    const cols = []
+    if (zoom === 'days') {
+      for (let i = 0; i <= totalDays; i++) {
+        const d   = addDays(chartStart, i)
+        const isW = d.getDay() === 0 || d.getDay() === 6
+        const isTd = isToday(d)
+        cols.push(
+          <div key={i} className={`flex-none flex flex-col items-center justify-center border-l select-none ${isW ? 'border-slate-100 bg-slate-50/60' : 'border-slate-100'} ${isTd ? 'bg-blue-50' : ''}`}
+            style={{ width: dayWidth }}>
+            <span className={`text-[9px] font-bold uppercase ${isTd ? 'text-blue-600' : isW ? 'text-slate-300' : 'text-slate-400'}`}>
+              {format(d, 'E', { locale: es }).substring(0, 1)}
+            </span>
+            <span className={`text-[11px] font-black ${isTd ? 'text-blue-600' : isW ? 'text-slate-400' : 'text-slate-600'}`}>
+              {format(d, 'd')}
+            </span>
+          </div>
+        )
+      }
+    } else {
+      for (let i = 0; i <= totalDays; i += 7) {
+        const d = addDays(chartStart, i)
+        cols.push(
+          <div key={i} className="flex-none border-l border-slate-100 flex flex-col justify-center px-2 select-none"
+            style={{ width: dayWidth * 7 }}>
+            <span className="text-[10px] font-bold text-slate-500">Sem {format(d, 'w')}</span>
+            <span className="text-[9px] text-slate-400">{format(d, 'd MMM', { locale: es })}</span>
+          </div>
+        )
+      }
     }
-  }
+    return cols
+  }, [chartStart, totalDays, dayWidth, zoom])
 
-  if (!tasks.length) return <p className="text-sm text-slate-500">No hay actividades definidas.</p>
+  // ── Background cols ───────────────────────────────────────────────────────
+  const bgCols = useMemo(() => {
+    const cols = []
+    if (zoom === 'days') {
+      for (let i = 0; i <= totalDays; i++) {
+        const d = addDays(chartStart, i)
+        const isW = d.getDay() === 0 || d.getDay() === 6
+        cols.push(<div key={i} className={`flex-none border-l border-slate-50 h-full ${isW ? 'bg-slate-50/40' : ''}`} style={{ width: dayWidth }} />)
+      }
+    } else {
+      for (let i = 0; i <= totalDays; i += 7) {
+        cols.push(<div key={i} className="flex-none border-l border-slate-50 h-full" style={{ width: dayWidth * 7 }} />)
+      }
+    }
+    return cols
+  }, [chartStart, totalDays, dayWidth, zoom])
 
-  const validStarts = tasks
-    .map(t => t.startDate ? new Date(t.startDate) : null)
-    .filter((d): d is Date => d !== null && !isNaN(d.getTime()))
-    
-  const validEnds = tasks
-    .map(t => t.endDate ? new Date(t.endDate) : null)
-    .filter((d): d is Date => d !== null && !isNaN(d.getTime()))
-  
-  if (!validStarts.length || !validEnds.length) {
-    return <p className="text-sm text-slate-500">No hay fechas válidas para graficar el Gantt.</p>
-  }
-
-  const projectStart = min(validStarts)
-  const projectEnd = max(validEnds)
-  
-  // Set margin depending on zoom
-  const marginDaysBefore = zoom === 'days' ? -2 : -7
-  const marginDaysAfter = zoom === 'days' ? 7 : 14
-  
-  const chartStart = addDays(projectStart, marginDaysBefore)
-  const chartEnd = addDays(projectEnd, marginDaysAfter)
-  const totalDays = Math.max(1, differenceInDays(chartEnd, chartStart))
-
-  // Grid sizing parameters
-  const dayWidth = zoom === 'days' ? 42 : 12 // px per day
-
-  // Render Time scale Header columns
-  const headerCols = []
-  if (zoom === 'days') {
-    for (let i = 0; i <= totalDays; i++) {
-      const currentDate = addDays(chartStart, i)
-      const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6
-      headerCols.push(
-        <div 
-          key={i} 
-          className={`flex-none text-center border-l border-slate-200/60 flex flex-col justify-between select-none ${isWeekend ? 'bg-slate-50/50' : ''}`}
-          style={{ width: `${dayWidth}px` }}
-        >
-          <span className="text-[9px] text-slate-400 font-semibold uppercase pt-1">
-            {format(currentDate, 'E', { locale: es }).substring(0, 1)}
-          </span>
-          <span className="text-xs font-semibold text-slate-600 pb-1">
-            {format(currentDate, 'd')}
-          </span>
+  if (!tasks.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-300 mb-3">
+          <Calendar className="h-6 w-6" />
         </div>
-      )
-    }
-  } else {
-    // Weeks view
-    for (let i = 0; i <= totalDays; i += 7) {
-      const currentDate = addDays(chartStart, i)
-      headerCols.push(
-        <div 
-          key={i} 
-          className="flex-none border-l border-slate-200/60 p-1 flex flex-col justify-end select-none"
-          style={{ width: `${dayWidth * 7}px` }}
-        >
-          <span className="text-[10px] font-semibold text-slate-500">
-            Sem. {format(currentDate, 'w')}
-          </span>
-          <span className="text-[9px] text-slate-400">
-            {format(currentDate, 'd MMM', { locale: es })}
-          </span>
-        </div>
-      )
-    }
+        <p className="text-sm font-bold text-slate-500">Sin actividades definidas</p>
+        <p className="text-xs text-slate-400 mt-1">Agrega actividades para ver el cronograma</p>
+      </div>
+    )
   }
 
-  // Grid background columns
-  const bgCols = []
-  if (zoom === 'days') {
-    for (let i = 0; i <= totalDays; i++) {
-      const currentDate = addDays(chartStart, i)
-      const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6
-      bgCols.push(
-        <div 
-          key={`bg-${i}`} 
-          className={`flex-none border-l border-slate-100 h-full ${isWeekend ? 'bg-slate-50/40' : ''}`}
-          style={{ width: `${dayWidth}px` }}
-        />
-      )
-    }
-  } else {
-    for (let i = 0; i <= totalDays; i += 7) {
-      bgCols.push(
-        <div 
-          key={`bg-${i}`} 
-          className="flex-none border-l border-slate-100 h-full"
-          style={{ width: `${dayWidth * 7}px` }}
-        />
-      )
-    }
-  }
-
-  // Open Details/Edit Modal
   const openEditModal = (task: Task) => {
     setSelectedTask(task)
     setEditName(task.name)
@@ -202,282 +168,177 @@ export function InteractiveGantt({
     setNewSubtaskName('')
   }
 
-  // Save changes via Server Action
   const handleSaveChanges = () => {
     if (!selectedTask) return
-
     startTransition(async () => {
       try {
-        const updated = await updateTaskDetails(selectedTask.id, {
-          name: editName,
-          technicianId: editTechId || null,
-          progress: editProgress,
-          status: editStatus,
+        await updateTaskDetails(selectedTask.id, {
+          name: editName, technicianId: editTechId || null,
+          progress: editProgress, status: editStatus,
           startDate: editStartDate ? new Date(editStartDate) : null,
-          endDate: editEndDate ? new Date(editEndDate) : null,
-          estimatedHours: editHours,
-          notes: editNotes
+          endDate:   editEndDate   ? new Date(editEndDate)   : null,
+          estimatedHours: editHours, notes: editNotes,
         })
-
-        // Update local state
         setTasks(prev => prev.map(t => {
-          if (t.id === selectedTask.id) {
-            const assignedTech = technicians.find(tc => tc.id === editTechId)
-            return {
-              ...t,
-              name: editName,
-              technicianId: editTechId || null,
-              technician: assignedTech ? { name: assignedTech.name } : null,
-              progress: editProgress,
-              status: editStatus,
-              startDate: editStartDate ? new Date(editStartDate) : null,
-              endDate: editEndDate ? new Date(editEndDate) : null,
-              estimatedHours: editHours,
-              notes: editNotes
-            }
+          if (t.id !== selectedTask.id) return t
+          const assignedTech = technicians.find(tc => tc.id === editTechId)
+          return {
+            ...t, name: editName, technicianId: editTechId || null,
+            technician: assignedTech ? { name: assignedTech.name } : null,
+            progress: editProgress, status: editStatus,
+            startDate: editStartDate ? new Date(editStartDate) : null,
+            endDate:   editEndDate   ? new Date(editEndDate)   : null,
+            estimatedHours: editHours, notes: editNotes,
           }
-          return t
         }))
-        
         setSelectedTask(null)
-      } catch (err) {
-        console.error("Error saving task details:", err)
-      }
+      } catch (err) { console.error(err) }
     })
   }
 
-  // Handle local toggle of subtask
   const handleToggleSubtask = async (subtaskId: string, isCompleted: boolean) => {
     try {
       await toggleProjectSubtask(subtaskId, isCompleted)
-      
-      // Update local state
-      setTasks(prev => prev.map(t => {
-        if (t.subtasks?.some(st => st.id === subtaskId)) {
-          const updatedSubtasks = t.subtasks.map(st => 
-            st.id === subtaskId ? { ...st, isCompleted } : st
-          )
-          
-          // Auto calculate progress based on subtasks if user completes them
-          const completedCount = updatedSubtasks.filter(st => st.isCompleted).length
-          const newProgress = Math.round((completedCount / updatedSubtasks.length) * 100)
-          
-          return {
-            ...t,
-            subtasks: updatedSubtasks,
-            progress: newProgress,
-            status: newProgress === 100 ? 'completed' : t.status
-          }
-        }
-        return t
-      }))
-
-      // Update selectedTask subtasks if open
-      if (selectedTask) {
-        setSelectedTask(prev => {
-          if (!prev || !prev.subtasks) return prev
-          const updatedSubtasks = prev.subtasks.map(st => 
-            st.id === subtaskId ? { ...st, isCompleted } : st
-          )
-          const completedCount = updatedSubtasks.filter(st => st.isCompleted).length
-          const newProgress = Math.round((completedCount / updatedSubtasks.length) * 100)
-          setEditProgress(newProgress)
-          return {
-            ...prev,
-            subtasks: updatedSubtasks,
-            progress: newProgress
-          }
-        })
+      const update = (list: Subtask[]) => {
+        const updated = list.map(st => st.id === subtaskId ? { ...st, isCompleted } : st)
+        return { updated, progress: Math.round((updated.filter(s => s.isCompleted).length / updated.length) * 100) }
       }
-    } catch (err) {
-      console.error(err)
-    }
+      setTasks(prev => prev.map(t => {
+        if (!t.subtasks?.some(s => s.id === subtaskId)) return t
+        const { updated, progress } = update(t.subtasks)
+        return { ...t, subtasks: updated, progress, status: progress === 100 ? 'completed' : t.status }
+      }))
+      if (selectedTask?.subtasks) {
+        const { updated, progress } = update(selectedTask.subtasks)
+        setSelectedTask(prev => prev ? { ...prev, subtasks: updated, progress } : prev)
+        setEditProgress(progress)
+      }
+    } catch (err) { console.error(err) }
   }
 
-  // Handle adding new subtask
   const handleAddSubtask = async () => {
     if (!selectedTask || !newSubtaskName.trim()) return
-
     try {
-      const newSt = await createProjectSubtask({
-        taskId: selectedTask.id,
-        name: newSubtaskName.trim()
-      })
-
-      const finalSt = {
-        id: newSt.id,
-        name: newSt.name,
-        isCompleted: newSt.isCompleted
-      }
-
-      // Update local tasks
-      setTasks(prev => prev.map(t => {
-        if (t.id === selectedTask.id) {
-          const updatedSubtasks = [...(t.subtasks || []), finalSt]
-          return {
-            ...t,
-            subtasks: updatedSubtasks
-          }
-        }
-        return t
-      }))
-
-      // Update selectedTask modal view
-      setSelectedTask(prev => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          subtasks: [...(prev.subtasks || []), finalSt]
-        }
-      })
-
+      const newSt = await createProjectSubtask({ taskId: selectedTask.id, name: newSubtaskName.trim() })
+      const st = { id: newSt.id, name: newSt.name, isCompleted: newSt.isCompleted }
+      setTasks(prev => prev.map(t => t.id === selectedTask.id ? { ...t, subtasks: [...(t.subtasks || []), st] } : t))
+      setSelectedTask(prev => prev ? { ...prev, subtasks: [...(prev.subtasks || []), st] } : prev)
       setNewSubtaskName('')
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
+  // ── Gantt content ─────────────────────────────────────────────────────────
   const ganttContent = (
     <div className="flex flex-col h-full bg-white">
-      {/* TOOLBAR */}
-      <div className="flex items-center justify-between p-3 border-b border-slate-200 bg-slate-50 gap-4">
-        <div className="flex items-center gap-2">
-          {/* Zoom controls */}
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm text-xs">
-            <button 
-              onClick={() => setZoom('days')}
-              className={`px-3 py-1 rounded-md font-medium transition-all ${zoom === 'days' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Vista Días
-            </button>
-            <button 
-              onClick={() => setZoom('weeks')}
-              className={`px-3 py-1 rounded-md font-medium transition-all ${zoom === 'weeks' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Vista Semanas
-            </button>
-          </div>
 
-          {/* Timeline scroll buttons */}
-          <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
-            <button 
-              onClick={() => scrollTimeline('left')}
-              className="p-1.5 rounded-md hover:bg-slate-200 border border-slate-200 bg-white shadow-sm transition-colors"
-              title="Desplazar izquierda"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 text-slate-600" />
-            </button>
-            <button 
-              onClick={() => scrollTimeline('right')}
-              className="p-1.5 rounded-md hover:bg-slate-200 border border-slate-200 bg-white shadow-sm transition-colors"
-              title="Desplazar derecha"
-            >
-              <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
-            </button>
+      {/* TOOLBAR */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 bg-slate-50/70 gap-3 shrink-0">
+        <div className="flex items-center gap-2">
+          {/* Zoom */}
+          <div className="inline-flex rounded-xl bg-white border border-slate-200 p-0.5 shadow-sm">
+            {(['days', 'weeks'] as const).map(z => (
+              <button key={z} onClick={() => setZoom(z)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${zoom === z ? 'gradient-brand text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                {z === 'days' ? 'Días' : 'Semanas'}
+              </button>
+            ))}
+          </div>
+          {/* Scroll */}
+          <div className="flex gap-1 border-l border-slate-200 pl-2">
+            {(['left','right'] as const).map(d => (
+              <button key={d} onClick={() => scrollTimeline(d)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm">
+                {d === 'left' ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400 flex items-center gap-1">
-            <Info className="w-3.5 h-3.5" /> Haz clic en cualquier barra o actividad para editarla.
-          </span>
-          <button 
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 shadow-sm transition-colors"
-          >
-            {isFullscreen ? (
-              <>
-                <Minimize2 className="w-3.5 h-3.5" /> Salir Pantalla Completa
-              </>
-            ) : (
-              <>
-                <Maximize2 className="w-3.5 h-3.5" /> Ventana Completa
-              </>
-            )}
+        <div className="flex items-center gap-3">
+          <p className="hidden sm:flex items-center gap-1 text-[10px] text-slate-400">
+            <Info className="h-3 w-3" /> Clic en barra para editar
+          </p>
+          {/* Leyenda */}
+          <div className="hidden md:flex items-center gap-3 text-[10px] font-semibold text-slate-500">
+            <span className="flex items-center gap-1"><span className="h-2 w-4 rounded-sm bg-emerald-500 inline-block" /> Completado</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-4 rounded-sm bg-blue-500 inline-block" /> En progreso</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-4 rounded-sm bg-slate-400 inline-block" /> Pendiente</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-4 rounded-sm bg-rose-500 inline-block" /> Retrasado</span>
+          </div>
+          <button onClick={() => setIsFullscreen(!isFullscreen)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm">
+            {isFullscreen ? <><Minimize2 className="h-3.5 w-3.5" /> Salir</> : <><Maximize2 className="h-3.5 w-3.5" /> Pantalla completa</>}
           </button>
         </div>
       </div>
 
-      {/* TABLE & TIMELINE CONTAINER */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* LEFT PANEL: Task Details */}
-        <div className="w-[380px] shrink-0 border-r border-slate-200 flex flex-col bg-white select-none">
+      {/* GRID */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* LEFT PANEL */}
+        <div className="w-[320px] shrink-0 flex flex-col border-r border-slate-100 bg-white">
           {/* Header */}
-          <div className="h-14 border-b border-slate-200 flex items-center justify-between px-4 bg-slate-50/50">
-            <span className="font-semibold text-slate-700 text-sm">Detalle de Actividad</span>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase">Progreso</span>
+          <div className="h-14 border-b border-slate-100 flex items-center justify-between px-4 bg-slate-50/60 shrink-0">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Actividad</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Avance</span>
           </div>
-          {/* List items */}
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          {/* Rows */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
             {tasks.map(task => {
               const isCompleted = task.progress === 100
-              const isExpanded = expandedTasks[task.id]
+              const isExpanded  = expandedTasks[task.id]
+              const isOverdue   = task.endDate && isBefore(new Date(task.endDate), new Date()) && !isCompleted
+              const { bg } = barStyle(task)
 
               return (
-                <div key={task.id} className="flex flex-col hover:bg-slate-50/30 transition-colors">
-                  <div className="flex items-center min-h-[56px] px-3 gap-2">
-                    {/* Collapsible toggle */}
-                    <button 
-                      onClick={() => toggleTask(task.id)} 
-                      className="text-slate-400 hover:text-slate-700 focus:outline-none shrink-0"
-                    >
-                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                <div key={task.id} className="flex flex-col">
+                  <div className="flex items-center min-h-[56px] px-3 gap-2 hover:bg-slate-50/60 transition-colors">
+                    {/* Expand toggle */}
+                    <button onClick={() => toggleTask(task.id)}
+                      className="text-slate-300 hover:text-slate-600 transition-colors shrink-0">
+                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </button>
 
-                    {/* Task details */}
-                    <div 
-                      onClick={() => openEditModal(task)}
-                      className="flex-1 min-w-0 cursor-pointer pr-2"
-                    >
-                      <h4 className="text-xs font-semibold text-slate-800 truncate" title={task.name}>
+                    {/* Status dot */}
+                    <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${bg}`} />
+
+                    {/* Name + tech */}
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditModal(task)}>
+                      <p className={`text-xs font-bold truncate ${isCompleted ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
                         {task.name}
-                      </h4>
-                      <p className="text-[10px] text-slate-500 truncate flex items-center gap-1 mt-0.5">
-                        <User className="w-2.5 h-2.5" /> {task.technician?.name || 'Sin asignar'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                        <User className="h-2.5 w-2.5" />
+                        {task.technician?.name || 'Sin asignar'}
+                        {isOverdue && <span className="ml-1 text-rose-500 flex items-center gap-0.5"><AlertTriangle className="h-2.5 w-2.5" /> Retrasado</span>}
                       </p>
                     </div>
 
-                    {/* Edit button */}
-                    <button 
-                      onClick={() => openEditModal(task)}
-                      className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors shrink-0"
-                      title="Editar actividad"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
+                    {/* Edit btn */}
+                    <button onClick={() => openEditModal(task)}
+                      className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-300 hover:bg-slate-100 hover:text-blue-600 transition-all shrink-0">
+                      <Edit3 className="h-3 w-3" />
                     </button>
 
-                    {/* Progress Badge */}
-                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md shrink-0 w-11 text-center select-none ${
-                      isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
+                    {/* Progress badge */}
+                    <span className={`px-2 py-0.5 text-[10px] font-black rounded-lg shrink-0 min-w-[36px] text-center ${isCompleted ? 'bg-emerald-100 text-emerald-700' : isOverdue ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'}`}>
                       {task.progress}%
                     </span>
                   </div>
 
-                  {/* Expanded Subtasks */}
+                  {/* Subtasks */}
                   {isExpanded && (
-                    <div className="px-4 py-2 bg-slate-50/50 border-t border-slate-100/60 divide-y divide-slate-100/50">
-                      {task.subtasks && task.subtasks.length > 0 ? (
-                        task.subtasks.map(st => (
-                          <div 
-                            key={st.id} 
-                            onClick={() => handleToggleSubtask(st.id, !st.isCompleted)}
-                            className="flex items-center gap-2 py-1.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer transition-colors"
-                          >
-                            {st.isCompleted ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                            ) : (
-                              <Circle className="w-3.5 h-3.5 text-slate-300 hover:text-blue-500 shrink-0" />
-                            )}
-                            <span className={`truncate ${st.isCompleted ? 'line-through text-slate-400' : ''}`}>
-                              {st.name}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-[10px] text-slate-400 py-1 flex items-center gap-1">
-                          <Info className="w-3 h-3" /> No hay subtareas registradas.
-                        </p>
+                    <div className="px-4 py-2 bg-slate-50/60 border-t border-slate-100/60 divide-y divide-slate-100/40">
+                      {task.subtasks?.length ? task.subtasks.map(st => (
+                        <div key={st.id} onClick={() => handleToggleSubtask(st.id, !st.isCompleted)}
+                          className="flex items-center gap-2 py-1.5 text-xs cursor-pointer hover:bg-slate-100/60 rounded-lg px-1 transition-colors">
+                          {st.isCompleted
+                            ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            : <Circle className="h-3.5 w-3.5 text-slate-300 hover:text-blue-500 shrink-0" />}
+                          <span className={`truncate font-medium ${st.isCompleted ? 'line-through text-slate-400' : 'text-slate-600'}`}>{st.name}</span>
+                        </div>
+                      )) : (
+                        <p className="text-[10px] text-slate-400 py-1.5 px-1">Sin subtareas registradas.</p>
                       )}
                     </div>
                   )}
@@ -487,85 +348,91 @@ export function InteractiveGantt({
           </div>
         </div>
 
-        {/* RIGHT PANEL: Timeline Gantt */}
-        <div 
-          ref={timelineRef}
-          className="flex-1 overflow-x-auto overflow-y-hidden relative flex flex-col bg-white"
-        >
-          {/* Header */}
-          <div className="h-14 border-b border-slate-200 flex bg-slate-50/50 shrink-0 min-w-max">
+        {/* RIGHT PANEL: Timeline */}
+        <div ref={timelineRef} className="flex-1 overflow-x-auto overflow-y-hidden flex flex-col bg-white relative">
+
+          {/* Timeline header */}
+          <div className="h-14 border-b border-slate-100 flex bg-slate-50/60 shrink-0 min-w-max">
             {headerCols}
           </div>
 
-          {/* Timeline Grid & Bars */}
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100 min-w-max relative select-none">
-            {/* Background Grid columns */}
+          {/* Timeline rows */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-50 min-w-max relative select-none">
+            {/* BG grid */}
             <div className="absolute inset-y-0 left-0 flex pointer-events-none z-0">
               {bgCols}
             </div>
 
-            {/* Rows */}
+            {/* Today marker */}
+            {todayOffset !== null && (
+              <div
+                className="absolute top-0 bottom-0 z-20 pointer-events-none"
+                style={{ left: todayOffset }}
+              >
+                <div className="w-[2px] h-full bg-blue-500/50" />
+                <div className="absolute -top-0 -left-3 bg-blue-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap">
+                  HOY
+                </div>
+              </div>
+            )}
+
+            {/* Task rows */}
             {tasks.map(task => {
               const startDate = task.startDate ? new Date(task.startDate) : null
-              const endDate = task.endDate ? new Date(task.endDate) : null
-              
-              let widthPx = 0
-              let startPx = 0
+              const endDate   = task.endDate   ? new Date(task.endDate)   : null
+              let startPx = 0, widthPx = 0
 
               if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-                const startOffset = Math.max(0, differenceInDays(startDate, chartStart))
+                const offset   = Math.max(0, differenceInDays(startDate, chartStart))
                 const duration = Math.max(1, differenceInDays(endDate, startDate))
-                startPx = startOffset * dayWidth
+                startPx = offset * dayWidth
                 widthPx = duration * dayWidth
               }
 
-              const isCompleted = task.progress === 100
-              const barColor = isCompleted 
-                ? 'from-emerald-400 to-emerald-500 border-emerald-600/60 shadow-emerald-100 text-emerald-800' 
-                : 'from-blue-500 to-indigo-500 border-blue-600/60 shadow-blue-100 text-blue-800'
-                
+              const { bg, fill } = barStyle(task)
               const isExpanded = expandedTasks[task.id]
+              const isHovered  = hoveredBar === task.id
 
               return (
                 <div key={task.id} className="relative flex flex-col">
-                  {/* Main Gantt Row */}
                   <div className="h-[56px] relative flex items-center z-10">
-                    {/* Gantt Bar */}
                     {widthPx > 0 ? (
-                      <div 
+                      <div
                         onClick={() => openEditModal(task)}
-                        className={`absolute h-8 rounded-lg shadow-sm border bg-gradient-to-r ${barColor} opacity-90 hover:opacity-100 transition-all flex items-center justify-start overflow-hidden hover:shadow-md hover:scale-[1.01] cursor-pointer`}
-                        style={{ left: `${startPx}px`, width: `${widthPx}px` }}
+                        onMouseEnter={() => setHoveredBar(task.id)}
+                        onMouseLeave={() => setHoveredBar(null)}
+                        className={`absolute h-7 rounded-lg cursor-pointer transition-all duration-150 flex items-center overflow-hidden
+                          ${bg} ${isHovered ? 'shadow-lg scale-[1.01] opacity-100 ring-2 ring-white ring-offset-1' : 'shadow-sm opacity-90'}`}
+                        style={{ left: startPx, width: widthPx }}
                       >
-                        {/* Progress fill */}
-                        <div 
-                          className="h-full bg-white/20 border-r border-white/10" 
-                          style={{ width: `${task.progress}%` }} 
+                        {/* Progress fill overlay */}
+                        <div
+                          className={`absolute left-0 top-0 h-full rounded-l-lg ${fill} border-r border-white/20 transition-all`}
+                          style={{ width: `${task.progress}%` }}
                         />
-                        {/* Progress tag inside bar if it fits */}
-                        {widthPx > 50 && (
-                          <span className="absolute left-2.5 text-[10px] font-bold text-white drop-shadow-sm select-none truncate">
+                        {/* Label */}
+                        {widthPx > 48 && (
+                          <span className="relative z-10 px-2.5 text-[10px] font-black text-white drop-shadow-sm truncate select-none">
                             {task.progress}%
+                            {widthPx > 100 && ` · ${task.name.split(' ').slice(0, 3).join(' ')}`}
                           </span>
                         )}
                       </div>
                     ) : (
-                      <div 
+                      <button
                         onClick={() => openEditModal(task)}
-                        className="absolute left-4 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-[10px] text-slate-500 font-semibold cursor-pointer flex items-center gap-1 hover:bg-slate-200"
+                        className="absolute left-4 flex items-center gap-1 px-2.5 py-1 rounded-lg border border-dashed border-slate-300 bg-white text-[10px] font-semibold text-slate-400 hover:border-blue-300 hover:text-blue-600 transition-all"
                       >
-                        <Calendar className="w-3.5 h-3.5" /> Sin rango de fechas
-                      </div>
+                        <Calendar className="h-3 w-3" /> Sin fechas — clic para editar
+                      </button>
                     )}
                   </div>
 
-                  {/* Spacer for expanded subtasks list to match heights with left panel */}
+                  {/* Spacer for subtask expansion */}
                   {isExpanded && (
-                    <div 
-                      className="bg-slate-50/20 border-t border-slate-100/30"
-                      style={{ 
-                        height: `${Math.max(34, (task.subtasks?.length || 1) * 32)}px` 
-                      }}
+                    <div
+                      className="bg-slate-50/20 border-t border-slate-50"
+                      style={{ height: Math.max(34, (task.subtasks?.length || 1) * 32) }}
                     />
                   )}
                 </div>
@@ -577,273 +444,178 @@ export function InteractiveGantt({
     </div>
   )
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* STANDARD INLINE VIEW */}
-      <div className="w-full h-[520px] overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-white">
+      {/* Inline view */}
+      <div className="w-full h-[520px] overflow-hidden">
         {ganttContent}
       </div>
 
-      {/* FULLSCREEN DASHBOARD MODAL */}
+      {/* Fullscreen modal */}
       {isFullscreen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm p-4 md:p-6 flex flex-col items-center justify-center animate-fade-in">
-          <div className="w-full max-w-[94vw] h-[90vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col border border-slate-200">
-            {/* Fullscreen Header banner */}
-            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 animate-fade-in" style={{ background: 'rgba(15,28,46,0.75)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-[96vw] h-[92vh] rounded-2xl overflow-hidden flex flex-col shadow-modal border border-white/10">
+            {/* Dark header */}
+            <div className="flex items-center justify-between px-5 py-3.5 shrink-0" style={{ background: 'var(--sidebar-bg)' }}>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-600 rounded-lg">
-                  <Maximize2 className="w-5 h-5 text-white" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-brand">
+                  <Maximize2 className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base">Modo Pantalla Completa: Gantt Interactivo</h3>
-                  <p className="text-xs text-slate-400">Cronograma general de actividades y seguimiento de proyectos</p>
+                  <p className="text-sm font-black text-white">Cronograma — Pantalla Completa</p>
+                  <p className="text-[10px] text-slate-400">Diagrama de Gantt interactivo</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsFullscreen(false)}
-                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
-              >
-                <X className="w-6 h-6" />
+              <button onClick={() => setIsFullscreen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-slate-400 hover:bg-white/20 hover:text-white transition-all">
+                <X className="h-4 w-4" />
               </button>
             </div>
-            {/* Render Gantt inside fullscreen dialog */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden bg-white">
               {ganttContent}
             </div>
           </div>
         </div>
       )}
 
-      {/* ACTIVITY DETAIL & EDITING MODAL */}
+      {/* Task edit modal */}
       {selectedTask && (
-        <div className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-scale-up">
-            
-            {/* Modal Header */}
-            <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
-                  <Sliders className="w-5 h-5" />
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,28,46,0.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl shadow-modal w-full max-w-2xl overflow-hidden animate-fade-in border border-slate-100">
+
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/80">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-brand">
+                  <Sliders className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base">Detalle de Actividad</h3>
-                  <p className="text-xs text-slate-500">Configuración, fechas y progreso del cronograma</p>
+                  <p className="text-sm font-black text-slate-900">Editar Actividad</p>
+                  <p className="text-[11px] text-slate-400">Fechas, progreso, subtareas y notas</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setSelectedTask(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-              >
-                <X className="w-5 h-5" />
+              <button onClick={() => setSelectedTask(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600 transition-all">
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="px-6 py-5 max-h-[70vh] overflow-y-auto space-y-6">
-              
-              {/* Task name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre de la Actividad</label>
-                <input 
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium text-slate-800 text-sm shadow-sm transition-all"
-                />
+            {/* Modal body */}
+            <div className="px-5 py-5 max-h-[70vh] overflow-y-auto space-y-5">
+
+              {/* Nombre */}
+              <div>
+                <FieldLabel>Nombre de la Actividad</FieldLabel>
+                <input type="text" value={editName} onChange={e => setEditName(e.target.value)} className={inputCls('font-bold')} />
               </div>
 
-              {/* Grid: Dates, Technician, Status */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* Start Date */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" /> Fecha Inicio
-                  </label>
-                  <input 
-                    type="date"
-                    value={editStartDate}
-                    onChange={(e) => setEditStartDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-700 text-sm shadow-sm transition-all"
-                  />
+              {/* Grid fechas + tech + status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel>Fecha Inicio</FieldLabel>
+                  <input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className={inputCls()} />
                 </div>
-
-                {/* End Date */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" /> Fecha Fin
-                  </label>
-                  <input 
-                    type="date"
-                    value={editEndDate}
-                    onChange={(e) => setEditEndDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-700 text-sm shadow-sm transition-all"
-                  />
+                <div>
+                  <FieldLabel>Fecha Fin</FieldLabel>
+                  <input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} className={inputCls()} />
                 </div>
-
-                {/* Technician assignment */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <User className="w-3.5 h-3.5" /> Técnico Encargado
-                  </label>
-                  <select
-                    value={editTechId}
-                    onChange={(e) => setEditTechId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-700 text-sm bg-white shadow-sm transition-all"
-                  >
-                    <option value="">Sin Asignar</option>
-                    {technicians.map(tc => (
-                      <option key={tc.id} value={tc.id}>{tc.name}</option>
-                    ))}
+                <div>
+                  <FieldLabel>Técnico Encargado</FieldLabel>
+                  <select value={editTechId} onChange={e => setEditTechId(e.target.value)} className={inputCls()}>
+                    <option value="">Sin asignar</option>
+                    {technicians.map(tc => <option key={tc.id} value={tc.id}>{tc.name}</option>)}
                   </select>
                 </div>
-
-                {/* Status selector */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</label>
-                  <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-700 text-sm bg-white shadow-sm transition-all"
-                  >
+                <div>
+                  <FieldLabel>Estado</FieldLabel>
+                  <select value={editStatus} onChange={e => setEditStatus(e.target.value)} className={inputCls()}>
                     <option value="pending">Pendiente</option>
                     <option value="in_progress">En Progreso</option>
                     <option value="completed">Completado</option>
+                    <option value="paused">Pausado</option>
                     <option value="skipped">Omitido</option>
                   </select>
                 </div>
-
-                {/* Hours estimated */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> Horas Estimadas
-                  </label>
-                  <input 
-                    type="number"
-                    min="0"
-                    value={editHours}
-                    onChange={(e) => setEditHours(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-700 text-sm shadow-sm transition-all"
-                  />
+                <div>
+                  <FieldLabel>Horas Estimadas</FieldLabel>
+                  <input type="number" min={0} value={editHours} onChange={e => setEditHours(Number(e.target.value))} className={inputCls()} />
                 </div>
               </div>
 
-              {/* Progress Bar slider */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 space-y-3">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Porcentaje de Progreso</label>
-                  <span className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
-                    editProgress === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
-                  }`}>
+              {/* Progreso */}
+              <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <FieldLabel>Porcentaje de Progreso</FieldLabel>
+                  <span className={`px-2.5 py-1 text-xs font-black rounded-lg ${editProgress === 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
                     {editProgress}%
                   </span>
                 </div>
-                <input 
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={editProgress}
-                  onChange={(e) => setEditProgress(Number(e.target.value))}
-                  className="w-full h-2 rounded-lg bg-slate-200 appearance-none cursor-pointer accent-blue-600"
-                />
+                <input type="range" min={0} max={100} step={5} value={editProgress}
+                  onChange={e => setEditProgress(Number(e.target.value))}
+                  className="w-full h-2 rounded-full bg-slate-200 appearance-none cursor-pointer accent-blue-600" />
+                <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full gradient-brand rounded-full transition-all" style={{ width: `${editProgress}%` }} />
+                </div>
               </div>
 
-              {/* Subtasks Hierarchy section */}
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                  <span>Subtareas / Checklist</span>
-                  <span className="text-[10px] text-slate-400 capitalize">
-                    {selectedTask.subtasks ? selectedTask.subtasks.filter(s => s.isCompleted).length : 0} de {selectedTask.subtasks?.length || 0} completadas
+              {/* Subtareas */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <FieldLabel>Subtareas / Checklist</FieldLabel>
+                  <span className="text-[10px] text-slate-400">
+                    {selectedTask.subtasks?.filter(s => s.isCompleted).length ?? 0} / {selectedTask.subtasks?.length ?? 0} completadas
                   </span>
-                </label>
-                
-                {/* List of subtasks */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 shadow-sm bg-white max-h-48 overflow-y-auto">
-                  {selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (
-                    selectedTask.subtasks.map(st => (
-                      <div 
-                        key={st.id} 
-                        onClick={() => handleToggleSubtask(st.id, !st.isCompleted)}
-                        className="flex items-center justify-between p-3 hover:bg-slate-50/50 cursor-pointer transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {st.isCompleted ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                          ) : (
-                            <Circle className="w-4 h-4 text-slate-300 hover:text-blue-500 shrink-0" />
-                          )}
-                          <span className={`text-xs font-medium truncate ${st.isCompleted ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                            {st.name}
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-4 text-center text-xs text-slate-400">
+                </div>
+                <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-50 bg-white max-h-44 overflow-y-auto shadow-sm">
+                  {selectedTask.subtasks?.length ? selectedTask.subtasks.map(st => (
+                    <div key={st.id} onClick={() => handleToggleSubtask(st.id, !st.isCompleted)}
+                      className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors">
+                      {st.isCompleted
+                        ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                        : <Circle className="h-4 w-4 text-slate-300 hover:text-blue-500 shrink-0" />}
+                      <span className={`text-xs font-medium truncate ${st.isCompleted ? 'line-through text-slate-400' : 'text-slate-700'}`}>{st.name}</span>
+                    </div>
+                  )) : (
+                    <div className="px-4 py-6 text-center text-xs text-slate-400">
                       No hay subtareas para esta actividad
                     </div>
                   )}
                 </div>
-
-                {/* Add new subtask form inline */}
-                <div className="flex gap-2">
-                  <input 
-                    type="text"
-                    placeholder="Escribe una nueva subtarea..."
-                    value={newSubtaskName}
-                    onChange={(e) => setNewSubtaskName(e.target.value)}
-                    onKeyDown={(e) => { if(e.key === 'Enter') handleAddSubtask() }}
-                    className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-xs text-slate-700 shadow-sm transition-all"
-                  />
-                  <button 
-                    onClick={handleAddSubtask}
-                    className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1 shadow-sm transition-all hover:scale-[1.02]"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Añadir
+                <div className="flex gap-2 mt-2">
+                  <input type="text" placeholder="Nueva subtarea..." value={newSubtaskName}
+                    onChange={e => setNewSubtaskName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddSubtask() }}
+                    className={inputCls('flex-1 text-xs')} />
+                  <button onClick={handleAddSubtask}
+                    className="flex items-center gap-1 px-3 py-2 rounded-xl gradient-brand text-white text-xs font-bold shadow-sm hover:opacity-90 transition-all">
+                    <Plus className="h-3.5 w-3.5" /> Añadir
                   </button>
                 </div>
               </div>
 
-              {/* Notes */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Notas de Campo</label>
-                <textarea 
-                  rows={3}
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  placeholder="Detalles sobre fallas, observaciones del técnico o comentarios adicionales..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-700 text-xs shadow-sm transition-all resize-none"
-                />
+              {/* Notas */}
+              <div>
+                <FieldLabel>Notas de Campo</FieldLabel>
+                <textarea rows={3} value={editNotes} onChange={e => setEditNotes(e.target.value)}
+                  placeholder="Observaciones del técnico, hallazgos, recomendaciones..."
+                  className={inputCls('resize-none')} />
               </div>
-
             </div>
 
-            {/* Modal Footer */}
-            <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end gap-3 shrink-0">
-              <button 
-                onClick={() => setSelectedTask(null)}
-                className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 text-sm font-semibold rounded-xl transition-all"
-              >
+            {/* Modal footer */}
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-100 bg-slate-50/80">
+              <button onClick={() => setSelectedTask(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">
                 Cancelar
               </button>
-              <button 
-                onClick={handleSaveChanges}
-                disabled={isPending}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-1.5 shadow-md shadow-blue-100 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:pointer-events-none"
-              >
-                {isPending ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Guardando...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4" /> Guardar Cambios
-                  </>
-                )}
+              <button onClick={handleSaveChanges} disabled={isPending}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl gradient-brand text-white text-sm font-bold shadow-md hover:opacity-90 transition-all disabled:opacity-50 disabled:pointer-events-none">
+                {isPending
+                  ? <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Guardando...</>
+                  : <><Check className="h-4 w-4" /> Guardar Cambios</>}
               </button>
             </div>
-
           </div>
         </div>
       )}
