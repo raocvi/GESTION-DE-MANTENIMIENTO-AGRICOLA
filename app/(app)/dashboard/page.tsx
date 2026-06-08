@@ -30,11 +30,12 @@ export default async function DashboardPage() {
     dueDate: o.dueDate ? o.dueDate.toISOString() : null,
     closedAt: o.closedAt ? o.closedAt.toISOString() : null,
     startedAt: o.startedAt ? o.startedAt.toISOString() : null,
+    actualHours: o.actualHours || 0,
     laborCost: o.laborCost || 0,
     partsCost: o.partsCost || 0,
     totalCost: o.totalCost || 0,
     asset: o.asset,
-    client: o.client, // include client if available
+    client: o.client,
     assignedTo: o.assignedTo,
   }))
 

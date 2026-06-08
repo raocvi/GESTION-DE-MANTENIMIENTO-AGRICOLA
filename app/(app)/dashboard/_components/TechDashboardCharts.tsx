@@ -100,7 +100,8 @@ function PBIBar({ data, dataKey, layout = 'vert', colors, labelFmt, multiKeys }:
               <Bar key={mk.key} dataKey={mk.key} fill={mk.color} radius={[4, 4, 0, 0]} barSize={10}
                 onMouseEnter={(_, i) => setHov(i)} onMouseLeave={() => setHov(null)}
               >
-                {data.map((_, i) => <Cell key={i} style={cellStyle(i)} />)}
+                {/* fill explícito requerido — sin él las barras agrupadas quedan transparentes en Recharts */}
+                {data.map((_, i) => <Cell key={i} fill={mk.color} style={cellStyle(i)} />)}
               </Bar>
             ))}
           </>

@@ -310,19 +310,85 @@ async function main() {
     techs.push(techRecord)
   }
 
-  // 4. Clientes (50+)
+  // 4. Clientes — Ingenios Azucareros y Palmicultores Reales de Colombia
+  const CLIENT_PROFILES = [
+    // ── INGENIOS AZUCAREROS ──────────────────────────────────────────
+    { name: 'Ingenio Providencia S.A.',         contactName: 'Pedro Isaías Caicedo',    city: 'Palmira',          department: 'Valle del Cauca', phone: '+57 2 275 4000', sector: 'Azucarero' },
+    { name: 'Ingenio Manuelita S.A.',           contactName: 'Diego Villegas',          city: 'Palmira',          department: 'Valle del Cauca', phone: '+57 2 272 0100', sector: 'Azucarero' },
+    { name: 'Ingenio Risaralda S.A.',           contactName: 'Carlos Arturo Ángel',     city: 'La Virginia',      department: 'Risaralda',       phone: '+57 6 364 7000', sector: 'Azucarero' },
+    { name: 'Ingenio La Cabaña S.A.',           contactName: 'Andrés Guzmán',           city: 'Florida',          department: 'Valle del Cauca', phone: '+57 2 232 5000', sector: 'Azucarero' },
+    { name: 'Ingenio Pichichi S.A.',            contactName: 'Jorge Molina',            city: 'Guacarí',          department: 'Valle del Cauca', phone: '+57 2 254 0200', sector: 'Azucarero' },
+    { name: 'Incauca S.A.',                     contactName: 'Germán Montoya',          city: 'Miranda',          department: 'Cauca',           phone: '+57 2 826 0000', sector: 'Azucarero' },
+    { name: 'Ingenio Carmelita S.A.',           contactName: 'Luis Evaristo Potes',     city: 'San Pedro',        department: 'Valle del Cauca', phone: '+57 2 241 4000', sector: 'Azucarero' },
+    { name: 'Ingenio Castilla S.A.',            contactName: 'Ricardo Vélez',           city: 'Candelaria',       department: 'Valle del Cauca', phone: '+57 2 269 5000', sector: 'Azucarero' },
+    { name: 'Ingenio Mayagüez S.A.',            contactName: 'Rodrigo Lloreda',         city: 'El Cerrito',       department: 'Valle del Cauca', phone: '+57 2 255 6000', sector: 'Azucarero' },
+    { name: 'Ingenio San Carlos S.A.',          contactName: 'Héctor Parra',            city: 'Palmira',          department: 'Valle del Cauca', phone: '+57 2 272 4500', sector: 'Azucarero' },
+    { name: 'Riopaila Castilla S.A.',           contactName: 'Bernardo Quintero',       city: 'Riofrío',          department: 'Valle del Cauca', phone: '+57 2 239 1000', sector: 'Azucarero' },
+    { name: 'Central Tumaco S.A.',              contactName: 'Rafael Guerrero',         city: 'Tumaco',           department: 'Nariño',          phone: '+57 2 722 7000', sector: 'Azucarero' },
+    { name: 'Ingenio del Cauca S.A.',           contactName: 'Alejandro Aristizábal',   city: 'Santander de Quilichao', department: 'Cauca',   phone: '+57 2 826 5000', sector: 'Azucarero' },
+    // ── PALMICULTORES ────────────────────────────────────────────────
+    { name: 'Palmeras de la Costa S.A.',        contactName: 'Jorge Enrique Soto',      city: 'Tierralta',        department: 'Córdoba',         phone: '+57 4 786 1200', sector: 'Palmicultor' },
+    { name: 'Palmas del César S.A.',            contactName: 'Álvaro Useche',           city: 'San Alberto',      department: 'César',           phone: '+57 5 570 3100', sector: 'Palmicultor' },
+    { name: 'Oleoflores S.A.S.',               contactName: 'Luis Guillermo Vélez',    city: 'San Alberto',      department: 'César',           phone: '+57 5 570 4500', sector: 'Palmicultor' },
+    { name: 'Extractora Loma Grande S.A.',      contactName: 'Carlos Sáenz',            city: 'Pivijay',          department: 'Magdalena',       phone: '+57 5 425 0800', sector: 'Palmicultor' },
+    { name: 'Palmas Oleaginosas Casanare S.A.', contactName: 'Omar Camargo',            city: 'Aguazul',          department: 'Casanare',        phone: '+57 8 635 7200', sector: 'Palmicultor' },
+    { name: 'Ecodiesel Colombia S.A.',          contactName: 'Felipe Arbeláez',         city: 'Puerto Wilches',   department: 'Santander',       phone: '+57 7 615 9000', sector: 'Palmicultor' },
+    { name: 'Padelma S.A.',                     contactName: 'Germán Arenas',           city: 'Puerto Wilches',   department: 'Santander',       phone: '+57 7 615 2300', sector: 'Palmicultor' },
+    { name: 'Palmeras de Puerto Wilches S.A.',  contactName: 'David Rueda',             city: 'Puerto Wilches',   department: 'Santander',       phone: '+57 7 615 6100', sector: 'Palmicultor' },
+    { name: 'Agroince Ltda.',                   contactName: 'Rafael Osorio',           city: 'Montería',         department: 'Córdoba',         phone: '+57 4 782 3400', sector: 'Palmicultor' },
+    { name: 'Extractora El Roble S.A.',         contactName: 'Jaime Arrieta',           city: 'María la Baja',    department: 'Bolívar',         phone: '+57 5 288 1200', sector: 'Palmicultor' },
+    { name: 'Unipalma de los Llanos S.A.',      contactName: 'Luis Devia',              city: 'Villavicencio',    department: 'Meta',            phone: '+57 8 670 4500', sector: 'Palmicultor' },
+    { name: 'Extractora Palmar de Oriente S.A.', contactName: 'Santiago López',         city: 'San Martín',       department: 'Meta',            phone: '+57 8 683 2100', sector: 'Palmicultor' },
+    { name: 'Bio D S.A.',                       contactName: 'Augusto Solano',          city: 'Bogotá',           department: 'Cundinamarca',    phone: '+57 1 321 5900', sector: 'Palmicultor' },
+    { name: 'Palmas del Magdalena S.A.',        contactName: 'Eduardo García',          city: 'El Retén',         department: 'Magdalena',       phone: '+57 5 438 2700', sector: 'Palmicultor' },
+    { name: 'Indupalma Ltda.',                  contactName: 'Roberto Prieto',          city: 'San Alberto',      department: 'César',           phone: '+57 5 570 1800', sector: 'Palmicultor' },
+    { name: 'Palmeras del Pacífico S.A.',       contactName: 'Humberto Valverde',       city: 'Tumaco',           department: 'Nariño',          phone: '+57 2 727 4200', sector: 'Palmicultor' },
+    { name: 'Coopal Ltda.',                     contactName: 'Fidel Montilla',          city: 'Tumaco',           department: 'Nariño',          phone: '+57 2 727 5600', sector: 'Palmicultor' },
+    { name: 'Palmar de Oriente S.A.',           contactName: 'Javier Castaño',          city: 'Puerto López',     department: 'Meta',            phone: '+57 8 636 1400', sector: 'Palmicultor' },
+    { name: 'Inversiones La Paz S.A.S.',        contactName: 'Manuel Suárez',           city: 'La Paz',           department: 'César',           phone: '+57 5 579 3300', sector: 'Palmicultor' },
+    { name: 'Palmeras La Concepción S.A.S.',    contactName: 'Oswaldo Herazo',          city: 'María la Baja',    department: 'Bolívar',         phone: '+57 5 288 4500', sector: 'Palmicultor' },
+    { name: 'C.I. Tequendama S.A.S.',          contactName: 'Pablo Rodríguez',         city: 'Sabana de Torres', department: 'Santander',       phone: '+57 7 654 2100', sector: 'Palmicultor' },
+    { name: 'Agropecuaria El Palmar S.A.S.',   contactName: 'Gustavo Pérez',           city: 'Montelíbano',      department: 'Córdoba',         phone: '+57 4 786 8900', sector: 'Palmicultor' },
+    { name: 'Palomino Agroindustrial S.A.S.',   contactName: 'Cesar Palomino',          city: 'Mompox',           department: 'Bolívar',         phone: '+57 5 685 3200', sector: 'Palmicultor' },
+    { name: 'Agropalmares de Colombia S.A.S.',  contactName: 'Víctor Salcedo',          city: 'Granada',          department: 'Meta',            phone: '+57 8 682 5700', sector: 'Palmicultor' },
+    { name: 'Extractora La Gloria S.A.',        contactName: 'Samuel Hernández',        city: 'La Gloria',        department: 'César',           phone: '+57 5 571 0400', sector: 'Palmicultor' },
+    { name: 'Agro Aceites La Loma S.A.S.',      contactName: 'Nelson Mendoza',          city: 'El Copey',         department: 'César',           phone: '+57 5 574 6100', sector: 'Palmicultor' },
+    { name: 'Palmex Ltda.',                     contactName: 'Norberto Quintero',       city: 'Tibú',             department: 'Norte de Santander', phone: '+57 7 562 3800', sector: 'Palmicultor' },
+    { name: 'Extractora Jagua S.A.',            contactName: 'Hernán Díaz',             city: 'Aguachica',        department: 'César',           phone: '+57 5 565 4200', sector: 'Palmicultor' },
+    { name: 'Palmeras del Sur S.A.S.',          contactName: 'Eliecer Ruiz',            city: 'Tumaco',           department: 'Nariño',          phone: '+57 2 727 8100', sector: 'Palmicultor' },
+    { name: 'Agropecuaria Manantial S.A.S.',    contactName: 'Bernardo Cruz',           city: 'Saravena',         department: 'Arauca',          phone: '+57 7 888 2300', sector: 'Palmicultor' },
+    { name: 'Extractora Sicarare S.A.',         contactName: 'Alberto Vargas',          city: 'Valledupar',       department: 'César',           phone: '+57 5 580 4600', sector: 'Palmicultor' },
+    { name: 'Palmas Montecarmelo S.A.S.',       contactName: 'Marco Gutiérrez',         city: 'Uchire',           department: 'Meta',            phone: '+57 8 616 3900', sector: 'Palmicultor' },
+    { name: 'Palmicultura La Floresta S.A.S.',  contactName: 'Jaime Torres',            city: 'Mapiripán',        department: 'Meta',            phone: '+57 8 622 1500', sector: 'Palmicultor' },
+    { name: 'Agroindustrias del Meta S.A.',     contactName: 'Diego Forero',            city: 'Villavicencio',    department: 'Meta',            phone: '+57 8 672 8200', sector: 'Palmicultor' },
+    { name: 'Oleoducto de Palma S.A.S.',        contactName: 'César Ramírez',           city: 'Barrancabermeja',  department: 'Santander',       phone: '+57 7 620 5300', sector: 'Palmicultor' },
+    { name: 'Palmares de Orocué S.A.S.',        contactName: 'Camilo Sandoval',         city: 'Orocué',           department: 'Casanare',        phone: '+57 8 628 7400', sector: 'Palmicultor' },
+    { name: 'Inversiones Palmicafé S.A.S.',     contactName: 'Guillermo Niño',          city: 'Puerto Gaitán',    department: 'Meta',            phone: '+57 8 669 2100', sector: 'Palmicultor' },
+    { name: 'Biocombustibles Sostenibles S.A.', contactName: 'Fernando Arias',          city: 'Bogotá',           department: 'Cundinamarca',    phone: '+57 1 743 5800', sector: 'Palmicultor' },
+  ]
+
   const clients = []
-  for (let i = 1; i <= 50; i++) {
+  for (let i = 0; i < CLIENT_PROFILES.length; i++) {
+    const p = CLIENT_PROFILES[i]
+    const idx = i + 1
     const client = await db.client.upsert({
-      where: { id: `client-${i.toString().padStart(3, '0')}` },
-      update: {},
+      where: { id: `client-${idx.toString().padStart(3, '0')}` },
+      update: {
+        name: p.name,
+        contactName: p.contactName,
+        city: p.city,
+        department: p.department,
+        phone: p.phone,
+      },
       create: {
-        id: `client-${i.toString().padStart(3, '0')}`,
+        id: `client-${idx.toString().padStart(3, '0')}`,
         organizationId: org.id,
-        code: `CLI-${i.toString().padStart(3, '0')}`,
-        name: `Agropecuaria Cliente ${i}`,
-        contactName: `Contacto ${i}`,
-        city: ['Medellín', 'Bogotá', 'Cali', 'Montería', 'Villavicencio'][i % 5],
+        code: `CLI-${idx.toString().padStart(3, '0')}`,
+        name: p.name,
+        contactName: p.contactName,
+        city: p.city,
+        department: p.department,
+        phone: p.phone,
       },
     })
     clients.push(client)
