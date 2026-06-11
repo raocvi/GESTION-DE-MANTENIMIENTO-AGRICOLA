@@ -85,20 +85,22 @@ function linearRegression(pts: { x: number; y: number }[]) {
 }
 
 function getPointColor(y: number, limit: LimitData | null): string {
-  if (!limit) return '#f59e0b'
+  if (!limit) return '#10b981'
   // Upper-bound variables (Fe, Cu, soot, oxidation, etc.)
-  if (limit.condemnedMax != null && limit.condemnedMax < 999) {
-    if (y > limit.condemnedMax * 1.20) return '#7c3aed'  // violet — >20% sobre condenatorio
-    if (y > limit.condemnedMax)        return '#ef4444'  // red    — supera condenatorio
-    return '#f59e0b'                                      // amber  — por debajo del condenatorio
+  if (limit.criticalMax < 999) {
+    if (y > limit.criticalMax) return '#7c3aed'   // violet — supera crítico
+    if (y > limit.cautionMax)  return '#ef4444'   // red    — entre precaución y crítico
+    if (y > limit.normalMax)   return '#eab308'   // yellow — entre normal y precaución
+    return '#10b981'                               // green  — dentro de normal
   }
   // Lower-bound variables (viscosity, TBN)
-  if (limit.condemnedMin != null) {
-    if (y < limit.condemnedMin * 0.80) return '#7c3aed'
-    if (y < limit.condemnedMin)        return '#ef4444'
-    return '#f59e0b'
+  if (limit.criticalMin != null) {
+    if (y < limit.criticalMin)                        return '#7c3aed'
+    if (limit.cautionMin != null && y < limit.cautionMin) return '#ef4444'
+    if (y < limit.normalMax)                          return '#eab308'
+    return '#10b981'
   }
-  return '#f59e0b'
+  return '#10b981'
 }
 
 function computeStats(values: number[]) {
@@ -411,14 +413,15 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
     [limits, selectedComponentType, selectedVariable]
   )
 
-  // Color-zone counts based on condemned limit (3 zones)
+  // Color-zone counts — 4 zones based on all limit thresholds
   const severityCounts = useMemo(() => {
-    const counts = { below: 0, condemned: 0, extreme: 0 }
+    const counts = { normal: 0, caution: 0, critical: 0, condemned: 0 }
     scatterData.forEach(p => {
       const c = getPointColor(p.y, currentLimits)
-      if      (c === '#f59e0b') counts.below++
-      else if (c === '#ef4444') counts.condemned++
-      else if (c === '#7c3aed') counts.extreme++
+      if      (c === '#10b981') counts.normal++
+      else if (c === '#eab308') counts.caution++
+      else if (c === '#ef4444') counts.critical++
+      else if (c === '#7c3aed') counts.condemned++
     })
     return counts
   }, [scatterData, currentLimits])
@@ -546,9 +549,10 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
               </p>
             </div>
             <div className="flex items-center gap-3 text-[11px]">
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" />Bajo límite ({severityCounts.below})</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />Condenado ({severityCounts.condemned})</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-violet-600" />Extremo +20% ({severityCounts.extreme})</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Normal ({severityCounts.normal})</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-400" />Precaución ({severityCounts.caution})</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />Crítico ({severityCounts.critical})</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-violet-600" />Condenado ({severityCounts.condemned})</span>
             </div>
           </div>
 
@@ -608,9 +612,10 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
               <div className="pt-3 border-t border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 mb-2">DISTRIBUCIÓN</p>
                 {[
-                  { label: 'Bajo límite', count: severityCounts.below,     color: '#f59e0b' },
-                  { label: 'Condenado',   count: severityCounts.condemned, color: '#ef4444' },
-                  { label: 'Extremo',     count: severityCounts.extreme,   color: '#7c3aed' },
+                  { label: 'Normal',    count: severityCounts.normal,    color: '#10b981' },
+                  { label: 'Precaución',count: severityCounts.caution,   color: '#eab308' },
+                  { label: 'Crítico',   count: severityCounts.critical,  color: '#ef4444' },
+                  { label: 'Condenado', count: severityCounts.condemned, color: '#7c3aed' },
                 ].map(s => (
                   <div key={s.label} className="mb-2">
                     <div className="flex justify-between text-[10px] mb-0.5">
