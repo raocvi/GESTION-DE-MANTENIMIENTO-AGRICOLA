@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Tractor, ClipboardList, Package,
   Users, Building2, BarChart3, Settings, Plus,
-  HelpCircle, Wrench, Zap
+  HelpCircle, Wrench, Activity, FileBarChart
 } from 'lucide-react'
 
 const navGroups = [
@@ -31,6 +31,8 @@ const navGroups = [
     label: 'Análisis',
     items: [
       { label: 'Proyectos',          href: '/proyectos',      icon: BarChart3,       match: (p: string) => p.startsWith('/proyectos') },
+      { label: 'Confiabilidad',      href: '/confiabilidad',  icon: Activity,        match: (p: string) => p.startsWith('/confiabilidad') },
+      { label: 'Informe Gerencial',  href: '/informes',       icon: FileBarChart,    match: (p: string) => p.startsWith('/informes') },
       { label: 'Configuración',      href: '/configuracion',  icon: Settings,        match: (p: string) => p.startsWith('/configuracion') },
     ]
   },
