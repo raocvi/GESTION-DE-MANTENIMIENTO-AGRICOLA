@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import {
   ComposedChart, Scatter, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ReferenceLine, ResponsiveContainer, Cell,
+  Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 import { TrendingUp, BarChart2, ChevronRight, X, Info, ArrowUpRight } from 'lucide-react'
 import type { ScatterPoint, LimitData } from '@/modules/M12_lube_analyst/actions'
@@ -68,7 +68,7 @@ const STATUS_COLOR: Record<string, string> = {
   normal: '#10b981', caution: '#f59e0b', critical: '#ef4444', condemned: '#7c3aed',
 }
 
-// ─── Linear regression ───
+// ─── Math helpers ───
 
 function linearRegression(pts: { x: number; y: number }[]) {
   const n = pts.length
@@ -95,11 +95,72 @@ function computeStats(values: number[]) {
   return { n, avg, median, stddev, min: sorted[0], max: sorted[n - 1], p25: sorted[Math.floor(n * 0.25)], p75: sorted[Math.floor(n * 0.75)] }
 }
 
-// ─── Custom tooltip ───
+interface ChartPoint {
+  x: number
+  y: number
+  assetId: string
+  assetCode: string
+  assetName: string
+  clientId: string
+  clientName: string
+  status: string
+  sampleDate: string
+  equipmentHours: number
+}
+
+function buildChartData(points: ScatterPoint[], varKey: string): ChartPoint[] {
+  return points
+    .filter(p => {
+      const val = (p as any)[varKey]
+      return p.oilHours > 0 && val !== null && val !== undefined && isFinite(val)
+    })
+    .map(p => ({
+      x: p.oilHours,
+      y: (p as any)[varKey] as number,
+      assetId: p.assetId,
+      assetCode: p.assetCode,
+      assetName: p.assetName,
+      clientId: p.clientId,
+      clientName: p.clientName,
+      status: p.status,
+      sampleDate: p.sampleDate,
+      equipmentHours: p.equipmentHours,
+    }))
+}
+
+function buildTrendLine(data: ChartPoint[]) {
+  const reg = linearRegression(data.map(p => ({ x: p.x, y: p.y })))
+  if (!reg || data.length < 2) return []
+  const xs = data.map(p => p.x)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  return [
+    { x: minX, trendY: reg.slope * minX + reg.intercept },
+    { x: maxX, trendY: reg.slope * maxX + reg.intercept },
+  ]
+}
+
+function buildYDomain(data: ChartPoint[], limit: LimitData | null): [number, number] {
+  const vals = data.map(p => p.y).filter(v => isFinite(v))
+  if (vals.length === 0) return [0, 100]
+  let lo = Math.min(...vals)
+  let hi = Math.max(...vals)
+  if (limit) {
+    if (limit.condemnedMax != null && limit.condemnedMax < 999) hi = Math.max(hi, limit.condemnedMax)
+    else if (limit.criticalMax < 999) hi = Math.max(hi, limit.criticalMax)
+    if (limit.condemnedMin != null) lo = Math.min(lo, limit.condemnedMin)
+    else if (limit.criticalMin != null) lo = Math.min(lo, limit.criticalMin)
+  }
+  const pad = Math.max((hi - lo) * 0.12, hi * 0.05, 0.5)
+  return [Math.max(0, parseFloat((lo - pad).toFixed(3))), parseFloat((hi + pad).toFixed(3))]
+}
+
+// ─── Tooltip ───
 
 function ScatterTooltip({ active, payload }: any) {
-  if (!active || !payload?.[0]) return null
-  const d = payload[0].payload
+  if (!active || !payload?.length) return null
+  const d = payload.find((p: any) => p.payload?.assetCode)?.payload
+  if (!d) return null
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-[12px] min-w-[160px]">
       <p className="font-bold text-slate-700 mb-1">{d.assetCode} — {d.assetName}</p>
@@ -124,6 +185,155 @@ function ScatterTooltip({ active, payload }: any) {
       </div>
       <p className="text-[10px] text-slate-300 mt-1.5">{new Date(d.sampleDate).toLocaleDateString('es-CO')}</p>
     </div>
+  )
+}
+
+// ─── Reusable scatter chart with limits + trend ───
+
+interface VariableScatterProps {
+  data: ChartPoint[]
+  limit: LimitData | null
+  unit: string
+  height: number
+  compact?: boolean
+  highlightedAssetId?: string | null
+  onPointClick?: (assetId: string) => void
+}
+
+function VariableScatterChart({ data, limit, unit, height, compact = false, highlightedAssetId, onPointClick }: VariableScatterProps) {
+  const trendLine = useMemo(() => buildTrendLine(data), [data])
+  const yDomain = useMemo(() => buildYDomain(data, limit), [data, limit])
+
+  if (data.length === 0) {
+    return (
+      <div style={{ height }} className="flex items-center justify-center text-slate-400 text-[12px]">
+        Sin datos
+      </div>
+    )
+  }
+
+  const fs = compact ? 9 : 10
+  const labelFs = compact ? 8 : 9
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart margin={{ top: 8, right: compact ? 8 : 16, bottom: compact ? 4 : 12, left: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis
+          dataKey="x"
+          type="number"
+          domain={['dataMin - 20', 'dataMax + 20']}
+          tickFormatter={v => `${Math.round(v)}h`}
+          tick={{ fontSize: fs }}
+          height={compact ? 22 : 36}
+          label={compact ? undefined : { value: 'Vida del Aceite (h)', position: 'insideBottom', offset: -6, style: { fontSize: 10, fill: '#94a3b8' } }}
+        />
+        <YAxis
+          type="number"
+          domain={yDomain}
+          allowDataOverflow={true}
+          tick={{ fontSize: fs }}
+          width={compact ? 38 : 48}
+          label={compact ? undefined : { value: unit, angle: -90, position: 'insideLeft', offset: 12, style: { fontSize: 10, fill: '#94a3b8' } }}
+        />
+        <Tooltip content={<ScatterTooltip />} cursor={false} />
+
+        {/* Limit lines — upper bounds (red dash-dot style like Excel) */}
+        {limit && (
+          <>
+            {limit.cautionMax < 999 && (
+              <ReferenceLine
+                y={limit.cautionMax}
+                stroke="#f59e0b" strokeDasharray="8 4 2 4" strokeWidth={1.8}
+                ifOverflow="extendDomain"
+                label={{ value: `${limit.cautionMax}`, position: 'right', style: { fontSize: labelFs, fill: '#f59e0b', fontWeight: 700 } }}
+              />
+            )}
+            {limit.criticalMax < 999 && (
+              <ReferenceLine
+                y={limit.criticalMax}
+                stroke="#ef4444" strokeDasharray="8 4 2 4" strokeWidth={2}
+                ifOverflow="extendDomain"
+                label={{ value: `${limit.criticalMax}`, position: 'right', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
+              />
+            )}
+            {limit.condemnedMax != null && limit.condemnedMax < 999 && (
+              <ReferenceLine
+                y={limit.condemnedMax}
+                stroke="#7c3aed" strokeDasharray="8 4 2 4" strokeWidth={2}
+                ifOverflow="extendDomain"
+                label={{ value: `${limit.condemnedMax}`, position: 'right', style: { fontSize: labelFs, fill: '#7c3aed', fontWeight: 700 } }}
+              />
+            )}
+            {/* Lower bounds (viscosity / TBN) */}
+            {limit.cautionMin != null && (
+              <ReferenceLine
+                y={limit.cautionMin}
+                stroke="#f59e0b" strokeDasharray="8 4 2 4" strokeWidth={1.8}
+                ifOverflow="extendDomain"
+                label={{ value: `${limit.cautionMin}`, position: 'right', style: { fontSize: labelFs, fill: '#f59e0b', fontWeight: 700 } }}
+              />
+            )}
+            {limit.criticalMin != null && (
+              <ReferenceLine
+                y={limit.criticalMin}
+                stroke="#ef4444" strokeDasharray="8 4 2 4" strokeWidth={2}
+                ifOverflow="extendDomain"
+                label={{ value: `${limit.criticalMin}`, position: 'right', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
+              />
+            )}
+            {limit.condemnedMin != null && (
+              <ReferenceLine
+                y={limit.condemnedMin}
+                stroke="#7c3aed" strokeDasharray="8 4 2 4" strokeWidth={2}
+                ifOverflow="extendDomain"
+                label={{ value: `${limit.condemnedMin}`, position: 'right', style: { fontSize: labelFs, fill: '#7c3aed', fontWeight: 700 } }}
+              />
+            )}
+          </>
+        )}
+
+        {/* Trend line (dashed orange like Excel) */}
+        {trendLine.length === 2 && (
+          <Line
+            data={trendLine}
+            dataKey="trendY"
+            stroke="#f97316"
+            strokeWidth={compact ? 1.5 : 2}
+            strokeDasharray="6 4"
+            dot={false}
+            activeDot={false}
+            legendType="none"
+            isAnimationActive={false}
+          />
+        )}
+
+        {/* Scatter points — dataKey="y" is REQUIRED for ComposedChart */}
+        <Scatter
+          data={data}
+          dataKey="y"
+          isAnimationActive={false}
+          shape={(props: any) => {
+            const { cx, cy, payload } = props
+            if (!isFinite(cx) || !isFinite(cy)) return <g />
+            const isHighlighted = payload.assetId === highlightedAssetId
+            const color = STATUS_COLOR[payload.status] ?? '#10b981'
+            return (
+              <circle
+                cx={cx} cy={cy}
+                r={isHighlighted ? 7 : compact ? 3.5 : 4.5}
+                fill={color}
+                fillOpacity={isHighlighted ? 1 : 0.75}
+                stroke={isHighlighted ? '#1e293b' : color}
+                strokeWidth={isHighlighted ? 2 : 0.5}
+                style={{ cursor: onPointClick ? 'pointer' : 'default' }}
+                onClick={() => onPointClick?.(payload.assetId)}
+              />
+            )
+          }}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
   )
 }
 
@@ -154,80 +364,37 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
     [assets, selectedClientId]
   )
 
-  // Filter scatter points
-  const filteredPoints = useMemo(() => {
+  // Points filtered by scope (client + asset + component) — variable filter applied per chart
+  const scopedPoints = useMemo(() => {
     return points.filter(p => {
       if (p.componentType !== selectedComponentType) return false
       if (selectedClientId !== 'all' && p.clientId !== selectedClientId) return false
       if (selectedAssetId && p.assetId !== selectedAssetId) return false
-      const val = (p as any)[selectedVariable]
-      return val !== null && val !== undefined && !isNaN(val)
+      return true
     })
-  }, [points, selectedComponentType, selectedClientId, selectedAssetId, selectedVariable])
+  }, [points, selectedComponentType, selectedClientId, selectedAssetId])
 
-  // Build scatter chart data
+  // Main chart data for selected variable
   const scatterData = useMemo(() =>
-    filteredPoints
-      .filter(p => p.oilHours > 0)
-      .map(p => ({
-        x: p.oilHours,
-        y: (p as any)[selectedVariable] as number,
-        assetId: p.assetId,
-        assetCode: p.assetCode,
-        assetName: p.assetName,
-        clientId: p.clientId,
-        clientName: p.clientName,
-        status: p.status,
-        sampleDate: p.sampleDate,
-        equipmentHours: p.equipmentHours,
-      })),
-    [filteredPoints, selectedVariable]
+    buildChartData(scopedPoints, selectedVariable),
+    [scopedPoints, selectedVariable]
   )
 
-  // Trend line
-  const trendLine = useMemo(() => {
-    const reg = linearRegression(scatterData.map(p => ({ x: p.x, y: p.y })))
-    if (!reg || scatterData.length < 2) return []
-    const xs = scatterData.map(p => p.x)
-    const minX = Math.min(...xs)
-    const maxX = Math.max(...xs)
-    return [
-      { x: minX, trendY: reg.slope * minX + reg.intercept },
-      { x: maxX, trendY: reg.slope * maxX + reg.intercept },
-    ]
-  }, [scatterData])
+  const trendLine = useMemo(() => buildTrendLine(scatterData), [scatterData])
 
-  // Stats
   const stats = useMemo(() =>
     computeStats(scatterData.map(p => p.y)),
     [scatterData]
   )
 
-  // Limits for current component+variable
+  const findLimit = (varKey: string) =>
+    limits.find(l => l.componentType === selectedComponentType && l.variable === varKey) ?? null
+
   const currentLimits = useMemo(() =>
-    limits.find(l => l.componentType === selectedComponentType && l.variable === selectedVariable) ?? null,
+    findLimit(selectedVariable),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [limits, selectedComponentType, selectedVariable]
   )
-
-  // Y-axis domain: include all data points + limit lines, with 15% padding
-  const yDomain = useMemo((): [number, number] => {
-    const vals = scatterData.map(p => p.y).filter(v => isFinite(v))
-    if (vals.length === 0) return [0, 100]
-    let lo = Math.min(...vals)
-    let hi = Math.max(...vals)
-    if (currentLimits) {
-      const condMax = currentLimits.condemnedMax
-      const critMax = currentLimits.criticalMax
-      if (condMax != null && condMax < 999) hi = Math.max(hi, condMax)
-      else if (critMax < 999) hi = Math.max(hi, critMax)
-      const condMin = currentLimits.condemnedMin
-      const critMin = currentLimits.criticalMin
-      if (condMin != null) lo = Math.min(lo, condMin)
-      else if (critMin != null) lo = Math.min(lo, critMin)
-    }
-    const pad = Math.max((hi - lo) * 0.15, hi * 0.08, 1)
-    return [Math.max(0, parseFloat((lo - pad).toFixed(3))), parseFloat((hi + pad).toFixed(3))]
-  }, [scatterData, currentLimits])
 
   // Severity counts
   const severityCounts = useMemo(() => ({
@@ -236,23 +403,15 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
     critical: scatterData.filter(p => p.status === 'critical' || p.status === 'condemned').length,
   }), [scatterData])
 
-  // Handle point click
-  function handlePointClick(data: any) {
-    if (!data?.activePayload?.[0]) return
-    const point = data.activePayload[0].payload
-    if (point?.assetId) {
-      setHighlightedAssetId(point.assetId)
-      setSelectedAssetId(point.assetId)
-    }
+  function handlePointClick(assetId: string) {
+    setHighlightedAssetId(assetId)
   }
 
-  // When component type changes, reset variable to first available
   function handleComponentChange(ct: string) {
     setSelectedComponentType(ct)
     setSelectedVariable(VARS_BY_COMPONENT[ct]?.[0]?.key ?? 'ironFe')
   }
 
-  // Breadcrumb label
   const scopeLabel = selectedAssetId
     ? assets.find(a => a.id === selectedAssetId)?.code ?? selectedAssetId
     : selectedClientId !== 'all'
@@ -360,10 +519,10 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-[14px] font-bold text-slate-700">
-                {currentVarMeta?.label} vs Horómetro — {COMPONENT_LABELS[selectedComponentType]}
+                {currentVarMeta?.label} vs Vida del Aceite — {COMPONENT_LABELS[selectedComponentType]}
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Diagrama de dispersión · línea de tendencia · límites de alarma
+                Cada punto = una muestra de un equipo · línea de tendencia · límites de alarma
               </p>
             </div>
             <div className="flex items-center gap-3 text-[11px]">
@@ -373,149 +532,26 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
             </div>
           </div>
 
-          {scatterData.length === 0 ? (
-            <div className="h-[320px] flex items-center justify-center text-slate-400 text-[13px]">
-              Sin datos para los filtros seleccionados
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <ComposedChart onClick={handlePointClick} style={{ cursor: 'pointer' }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="x"
-                  type="number"
-                  domain={['auto', 'auto']}
-                  allowDataOverflow={true}
-                  tickFormatter={v => `${Math.round(v)}h`}
-                  tick={{ fontSize: 10 }}
-                  label={{ value: 'Vida del Aceite (h)', position: 'insideBottom', offset: -5, style: { fontSize: 10, fill: '#94a3b8' } }}
-                  height={40}
-                />
-                <YAxis
-                  tick={{ fontSize: 10 }}
-                  label={{ value: currentVarMeta?.unit, angle: -90, position: 'insideLeft', offset: 15, style: { fontSize: 10, fill: '#94a3b8' } }}
-                  width={50}
-                  domain={yDomain}
-                  allowDataOverflow={true}
-                  type="number"
-                />
-                <Tooltip content={<ScatterTooltip />} cursor={false} />
-
-                {/* Limit reference lines — upper bounds */}
-                {currentLimits && (
-                  <>
-                    {/* Upper bounds */}
-                    {currentLimits.normalMax < 999 && (
-                      <ReferenceLine
-                        y={currentLimits.normalMax}
-                        stroke="#10b981" strokeDasharray="5 3" strokeWidth={1.5}
-                        label={{ value: `Norm.máx ${currentLimits.normalMax}`, position: 'insideTopRight', style: { fontSize: 8, fill: '#10b981' } }}
-                      />
-                    )}
-                    {currentLimits.cautionMax < 999 && (
-                      <ReferenceLine
-                        y={currentLimits.cautionMax}
-                        stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={1.5}
-                        label={{ value: `Prec.máx ${currentLimits.cautionMax}`, position: 'insideTopRight', style: { fontSize: 8, fill: '#f59e0b' } }}
-                      />
-                    )}
-                    {currentLimits.criticalMax < 999 && (
-                      <ReferenceLine
-                        y={currentLimits.criticalMax}
-                        stroke="#ef4444" strokeDasharray="5 3" strokeWidth={2}
-                        label={{ value: `Crit.máx ${currentLimits.criticalMax}`, position: 'insideTopRight', style: { fontSize: 8, fill: '#ef4444' } }}
-                      />
-                    )}
-                    {currentLimits.condemnedMax && currentLimits.condemnedMax < 999 && (
-                      <ReferenceLine
-                        y={currentLimits.condemnedMax}
-                        stroke="#7c3aed" strokeDasharray="4 2" strokeWidth={2}
-                        label={{ value: `Cond.máx ${currentLimits.condemnedMax}`, position: 'insideTopRight', style: { fontSize: 8, fill: '#7c3aed' } }}
-                      />
-                    )}
-                    {/* Lower bounds (range variables: viscosity, TBN) */}
-                    {currentLimits.normalMin != null && (
-                      <ReferenceLine
-                        y={currentLimits.normalMin}
-                        stroke="#10b981" strokeDasharray="5 3" strokeWidth={1.5}
-                        label={{ value: `Norm.mín ${currentLimits.normalMin}`, position: 'insideBottomRight', style: { fontSize: 8, fill: '#10b981' } }}
-                      />
-                    )}
-                    {currentLimits.cautionMin != null && (
-                      <ReferenceLine
-                        y={currentLimits.cautionMin}
-                        stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={1.5}
-                        label={{ value: `Prec.mín ${currentLimits.cautionMin}`, position: 'insideBottomRight', style: { fontSize: 8, fill: '#f59e0b' } }}
-                      />
-                    )}
-                    {currentLimits.criticalMin != null && (
-                      <ReferenceLine
-                        y={currentLimits.criticalMin}
-                        stroke="#ef4444" strokeDasharray="5 3" strokeWidth={2}
-                        label={{ value: `Crit.mín ${currentLimits.criticalMin}`, position: 'insideBottomRight', style: { fontSize: 8, fill: '#ef4444' } }}
-                      />
-                    )}
-                    {currentLimits.condemnedMin != null && (
-                      <ReferenceLine
-                        y={currentLimits.condemnedMin}
-                        stroke="#7c3aed" strokeDasharray="4 2" strokeWidth={2}
-                        label={{ value: `Cond.mín ${currentLimits.condemnedMin}`, position: 'insideBottomRight', style: { fontSize: 8, fill: '#7c3aed' } }}
-                      />
-                    )}
-                  </>
-                )}
-
-                {/* Trend line */}
-                {trendLine.length === 2 && (
-                  <Line
-                    data={trendLine}
-                    dataKey="trendY"
-                    stroke="#6366f1"
-                    strokeWidth={2}
-                    strokeDasharray="0"
-                    dot={false}
-                    activeDot={false}
-                    legendType="none"
-                    isAnimationActive={false}
-                  />
-                )}
-
-                {/* Scatter points */}
-                <Scatter
-                  data={scatterData}
-                  shape={(props: any) => {
-                    const { cx, cy, payload } = props
-                    const isHighlighted = payload.assetId === highlightedAssetId
-                    const color = STATUS_COLOR[payload.status] ?? '#10b981'
-                    return (
-                      <circle
-                        cx={cx} cy={cy}
-                        r={isHighlighted ? 7 : 4}
-                        fill={color}
-                        fillOpacity={isHighlighted ? 1 : 0.7}
-                        stroke={isHighlighted ? '#1e293b' : color}
-                        strokeWidth={isHighlighted ? 2 : 0.5}
-                        style={{ transition: 'r 0.15s, opacity 0.15s', cursor: 'pointer' }}
-                        onClick={() => { setHighlightedAssetId(payload.assetId); setSelectedAssetId(payload.assetId) }}
-                      />
-                    )
-                  }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
+          <VariableScatterChart
+            data={scatterData}
+            limit={currentLimits}
+            unit={currentVarMeta?.unit ?? ''}
+            height={340}
+            highlightedAssetId={highlightedAssetId}
+            onPointClick={handlePointClick}
+          />
 
           {/* Trend legend */}
           {trendLine.length === 2 && stats && (
             <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500">
               <span className="flex items-center gap-1.5">
-                <span className="inline-block h-0.5 w-6 bg-indigo-500 rounded" />
+                <span className="inline-block h-0.5 w-6 rounded border-b-2 border-dashed border-orange-500" />
                 Tendencia lineal
               </span>
-              <TrendingUp className="h-3.5 w-3.5 text-indigo-400" />
+              <TrendingUp className="h-3.5 w-3.5 text-orange-400" />
               <span>
                 {trendLine[1].trendY > trendLine[0].trendY
-                  ? `↑ Incremento de ${(trendLine[1].trendY - trendLine[0].trendY).toFixed(1)} ${currentVarMeta?.unit} a lo largo de la flota`
+                  ? `↑ Incremento de ${(trendLine[1].trendY - trendLine[0].trendY).toFixed(1)} ${currentVarMeta?.unit} a lo largo de la vida del aceite`
                   : `↓ Tendencia descendente de ${Math.abs(trendLine[1].trendY - trendLine[0].trendY).toFixed(1)} ${currentVarMeta?.unit}`
                 }
               </span>
@@ -573,17 +609,18 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                 <div className="pt-3 border-t border-slate-100">
                   <p className="text-[10px] font-bold text-slate-400 mb-2">LÍMITES</p>
                   <div className="space-y-1.5 text-[10px]">
-                    {/* Show range (min–max) or just upper bound */}
                     {[
                       { label: 'Normal',       color: '#10b981', max: currentLimits.normalMax,    min: currentLimits.normalMin    },
                       { label: 'Precaución',   color: '#f59e0b', max: currentLimits.cautionMax,   min: currentLimits.cautionMin   },
                       { label: 'Crítico',      color: '#ef4444', max: currentLimits.criticalMax,  min: currentLimits.criticalMin  },
                       { label: 'Condenatorio', color: '#7c3aed', max: currentLimits.condemnedMax, min: currentLimits.condemnedMin },
-                    ].filter(r => r.max != null && r.max < 999).map(r => (
+                    ].filter(r => (r.max != null && r.max < 999) || r.min != null).map(r => (
                       <div key={r.label} className="flex justify-between items-center">
                         <span style={{ color: r.color }} className="font-semibold">{r.label}</span>
                         <span className="font-bold text-slate-600">
-                          {r.min != null ? `${r.min}–${r.max}` : `≤ ${r.max}`}
+                          {r.min != null && r.max != null && r.max < 999 ? `${r.min}–${r.max}`
+                            : r.min != null ? `≥ ${r.min}`
+                            : `≤ ${r.max}`}
                         </span>
                       </div>
                     ))}
@@ -619,7 +656,7 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
               <button
-                onClick={() => { setHighlightedAssetId(null); setSelectedAssetId(null) }}
+                onClick={() => setHighlightedAssetId(null)}
                 className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
               >
                 <X className="h-4 w-4" />
@@ -651,48 +688,45 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
         </div>
       )}
 
-      {/* ── Variable grid — all variables for current component+scope ── */}
+      {/* ── Grid: one scatter chart per variable (Excel-style small multiples) ── */}
       <div className="chart-card p-5">
-        <p className="text-[13px] font-bold text-slate-700 mb-4">
-          Resumen de todas las variables — {COMPONENT_LABELS[selectedComponentType]}
-          <span className="text-[11px] font-normal text-slate-400 ml-2">({scopeLabel})</span>
-        </p>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        <div className="mb-4">
+          <p className="text-[14px] font-bold text-slate-700">
+            Consolidado por Variable — {COMPONENT_LABELS[selectedComponentType]}
+            <span className="text-[11px] font-normal text-slate-400 ml-2">({scopeLabel})</span>
+          </p>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            Todas las muestras de la flota por variable · límites de alarma · tendencia
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
           {varsMeta.map(v => {
-            const varPoints = filteredPoints
-              .filter(p => (p as any)[v.key] !== null)
-              .map(p => (p as any)[v.key] as number)
-
-            if (varPoints.length === 0) return null
-            const avg = varPoints.reduce((s, x) => s + x, 0) / varPoints.length
-            const max = Math.max(...varPoints)
-            const lim = limits.find(l => l.componentType === selectedComponentType && l.variable === v.key)
-            const avgStatus = lim
-              ? max >= lim.criticalMax ? 'critical'
-                : avg >= lim.cautionMax ? 'caution'
-                : 'normal'
-              : 'normal'
-
+            const data = buildChartData(scopedPoints, v.key)
+            if (data.length === 0) return null
+            const lim = findLimit(v.key)
+            const isActive = selectedVariable === v.key
             return (
-              <button
+              <div
                 key={v.key}
-                onClick={() => setSelectedVariable(v.key)}
-                className={`p-3 rounded-xl border text-left transition-all hover:shadow-md ${
-                  selectedVariable === v.key
-                    ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-300'
-                    : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                className={`rounded-xl border p-3 transition-all cursor-pointer ${
+                  isActive ? 'border-blue-400 ring-2 ring-blue-200 bg-blue-50/30' : 'border-slate-100 hover:border-slate-300'
                 }`}
+                onClick={() => setSelectedVariable(v.key)}
               >
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 truncate">{v.label}</p>
-                <p
-                  className="num text-[20px] font-extrabold leading-none"
-                  style={{ color: STATUS_COLOR[avgStatus] }}
-                >
-                  {avg.toFixed(1)}
-                </p>
-                <p className="text-[10px] text-slate-400 mt-1">avg · máx {max.toFixed(1)} {v.unit}</p>
-                <p className="text-[10px] text-slate-300">{varPoints.length} muestras</p>
-              </button>
+                <div className="flex items-center justify-between mb-1 px-1">
+                  <p className="text-[12px] font-bold text-slate-700">{v.label} <span className="text-slate-400 font-normal">({v.unit})</span></p>
+                  <span className="text-[10px] text-slate-400">{data.length} muestras</span>
+                </div>
+                <VariableScatterChart
+                  data={data}
+                  limit={lim}
+                  unit={v.unit}
+                  height={200}
+                  compact
+                  highlightedAssetId={highlightedAssetId}
+                  onPointClick={handlePointClick}
+                />
+              </div>
             )
           })}
         </div>
