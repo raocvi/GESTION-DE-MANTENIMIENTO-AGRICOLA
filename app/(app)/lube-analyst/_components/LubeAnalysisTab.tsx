@@ -147,7 +147,7 @@ function buildChartData(points: ScatterPoint[], varKey: string): ChartPoint[] {
     }))
 }
 
-function buildTrendLine(data: ChartPoint[]) {
+function buildTrendLine(data: { x: number; y: number }[]) {
   const reg = linearRegression(data.map(p => ({ x: p.x, y: p.y })))
   if (!reg || data.length < 2) return []
   const xs = data.map(p => p.x)
