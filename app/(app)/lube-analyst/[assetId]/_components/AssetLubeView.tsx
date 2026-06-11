@@ -5,7 +5,10 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Legend,
 } from 'recharts'
-import { AlertTriangle, CheckCircle, XCircle, Droplets, ChevronDown, ChevronUp, Wrench } from 'lucide-react'
+import {
+  AlertTriangle, CheckCircle, XCircle, Droplets, ChevronDown, ChevronUp, Wrench,
+  Cog, RotateCw, Zap, Gauge, CircleStop,
+} from 'lucide-react'
 import type { AssetLubeDetail } from '@/modules/M12_lube_analyst/actions'
 
 interface Props {
@@ -16,8 +19,18 @@ interface Props {
 const STATUS_COLOR: Record<string, string> = {
   normal: '#10b981', caution: '#f59e0b', critical: '#ef4444', condemned: '#7c3aed',
 }
-const COMPONENT_ICON: Record<string, string> = {
-  motor: '⚙️', transmission: '🔧', hydraulic: '🔩', differential: '⚡', final_drive: '🛞', brake_wet: '🛑', reducer: '🔄',
+function getComponentIcon(type: string, className: string = '') {
+  const iconProps = { className: `h-5 w-5 ${className}` }
+  const iconMap: Record<string, React.ReactNode> = {
+    motor: <Cog {...iconProps} />,
+    transmission: <RotateCw {...iconProps} />,
+    hydraulic: <Droplets {...iconProps} />,
+    differential: <Zap {...iconProps} />,
+    final_drive: <Gauge {...iconProps} />,
+    brake_wet: <CircleStop {...iconProps} />,
+    reducer: <RotateCw {...iconProps} />,
+  }
+  return iconMap[type] || <Wrench {...iconProps} />
 }
 const COMPONENT_LABEL: Record<string, string> = {
   motor: 'Motor', transmission: 'Transmisión', hydraulic: 'Hidráulico',
@@ -74,7 +87,7 @@ export function AssetLubeView({ detail, expandedComponentType }: Props) {
             className={`chart-card p-3 flex flex-col gap-1 text-left transition-all ${expanded === c.id ? 'ring-2 ring-blue-400' : ''}`}
           >
             <div className="flex items-center gap-2">
-              <span className="text-lg">{COMPONENT_ICON[c.componentType] || '🔧'}</span>
+              {getComponentIcon(c.componentType)}
               <StatusIcon status={c.status} />
             </div>
             <p className="text-[11px] font-bold text-slate-700">{COMPONENT_LABEL[c.componentType] || c.componentType}</p>
@@ -93,7 +106,9 @@ export function AssetLubeView({ detail, expandedComponentType }: Props) {
               onClick={() => setExpanded(isOpen ? null : comp.id)}
               className="w-full flex items-center gap-3 p-4 hover:bg-slate-50/60 transition-colors"
             >
-              <span className="text-xl">{COMPONENT_ICON[comp.componentType] || '🔧'}</span>
+              <div className="text-slate-600">
+                {getComponentIcon(comp.componentType, 'h-6 w-6')}
+              </div>
               <div className="flex-1 text-left">
                 <p className="text-[14px] font-bold text-slate-700">{COMPONENT_LABEL[comp.componentType] || comp.componentType} — {comp.name}</p>
                 <p className="text-[11px] text-slate-400">
