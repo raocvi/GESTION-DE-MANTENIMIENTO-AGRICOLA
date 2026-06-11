@@ -125,6 +125,21 @@ interface ChartPoint {
   status: string
   sampleDate: string
   equipmentHours: number
+  ironFe: number | null
+  copperCu: number | null
+  aluminumAl: number | null
+  chromeCr: number | null
+  tinSn: number | null
+  siliconSi: number | null
+  leadPb: number | null
+  pqIndex: number | null
+  tbn: number | null
+  waterPct: number | null
+  viscosity40: number | null
+  oxidation: number | null
+  fuelPct: number | null
+  soot: number | null
+  glycolPpm: number | null
 }
 
 function buildChartData(points: ScatterPoint[], varKey: string): ChartPoint[] {
@@ -144,6 +159,21 @@ function buildChartData(points: ScatterPoint[], varKey: string): ChartPoint[] {
       status: p.status,
       sampleDate: p.sampleDate,
       equipmentHours: p.equipmentHours,
+      ironFe: p.ironFe,
+      copperCu: p.copperCu,
+      aluminumAl: p.aluminumAl,
+      chromeCr: p.chromeCr,
+      tinSn: p.tinSn,
+      siliconSi: p.siliconSi,
+      leadPb: p.leadPb,
+      pqIndex: p.pqIndex,
+      tbn: p.tbn,
+      waterPct: p.waterPct,
+      viscosity40: p.viscosity40,
+      oxidation: p.oxidation,
+      fuelPct: p.fuelPct,
+      soot: p.soot,
+      glycolPpm: p.glycolPpm,
     }))
 }
 
@@ -221,30 +251,91 @@ interface HoveredPoint {
   relX: number
   relY: number
   unit: string
+  limit: LimitData | null
+  allLimits: LimitData[]
+  yVarKey: string
+}
+
+const ANOMALY_VAR_MAP: Record<string, { label: string; unit: string }> = {
+  ironFe: { label: 'Hierro (Fe)', unit: 'ppm' },
+  copperCu: { label: 'Cobre (Cu)', unit: 'ppm' },
+  leadPb: { label: 'Plomo (Pb)', unit: 'ppm' },
+  tinSn: { label: 'Estaño (Sn)', unit: 'ppm' },
+  chromeCr: { label: 'Cromo (Cr)', unit: 'ppm' },
+  aluminumAl: { label: 'Aluminio (Al)', unit: 'ppm' },
+  siliconSi: { label: 'Silicio (Si)', unit: 'ppm' },
+  viscosity40: { label: 'Viscosidad 100°C', unit: 'cSt' },
+  tbn: { label: 'TBN', unit: 'mgKOH/g' },
+  oxidation: { label: 'Oxidación', unit: 'abs/cm' },
+}
+
+function getAnomalies(point: ChartPoint, limit: LimitData | null, allLimits: LimitData[], yVarKey: string): Array<{ label: string; value: number; unit: string; status: 'high' | 'low' }> {
+  const anomalies: Array<{ label: string; value: number; unit: string; status: 'high' | 'low' }> = []
+  const pointAboveLimit = limit && (point.y > limit.cautionMax || point.y > limit.criticalMax)
+
+  if (!pointAboveLimit) return anomalies
+
+  const checkVars = ['siliconSi', 'viscosity40', 'ironFe', 'copperCu', 'leadPb', 'tinSn', 'chromeCr', 'aluminumAl']
+
+  for (const varKey of checkVars) {
+    const val = (point as any)[varKey]
+    if (val === null || val === undefined || !isFinite(val)) continue
+
+    const varLimitObj = allLimits.find(l => l.variable === varKey && l.componentType === limit?.componentType)
+    if (!varLimitObj) continue
+
+    const meta = ANOMALY_VAR_MAP[varKey]
+    if (!meta) continue
+
+    const isHigh = varLimitObj.criticalMax < 999 && val > varLimitObj.cautionMax
+    const isLow = varLimitObj.criticalMin != null && varLimitObj.cautionMin != null && val < varLimitObj.cautionMin
+
+    if (isHigh) anomalies.push({ label: meta.label, value: val, unit: meta.unit, status: 'high' })
+    if (isLow) anomalies.push({ label: meta.label, value: val, unit: meta.unit, status: 'low' })
+  }
+
+  return anomalies
 }
 
 function ScatterTooltipCard({ hovered }: { hovered: HoveredPoint }) {
   const d = hovered.point
+  const anomalies = getAnomalies(d, hovered.limit, hovered.allLimits, hovered.yVarKey)
+
   return (
     <div
       style={{ position: 'absolute', left: hovered.relX + 10, top: hovered.relY + 10, pointerEvents: 'none', zIndex: 50 }}
-      className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-[12px] min-w-[160px]"
+      className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-[12px] min-w-[200px]"
     >
       <p className="font-bold text-slate-700 mb-1">{d.assetCode} — {d.assetName}</p>
       <p className="text-slate-400 text-[10px] mb-2">{d.clientName}</p>
-      <div className="flex justify-between gap-4">
-        <span className="text-slate-500">Vida aceite</span>
-        <span className="font-bold text-slate-700">{Math.round(d.x)}h</span>
+      <div className="border-b border-slate-100 pb-2 mb-2 space-y-1">
+        <div className="flex justify-between gap-4">
+          <span className="text-slate-500">Vida aceite</span>
+          <span className="font-bold text-slate-700">{Math.round(d.x)}h</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-slate-500">Valor</span>
+          <span className="font-bold" style={{ color: STATUS_COLOR[d.status] }}>{d.y?.toFixed(2)} {hovered.unit}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-slate-500">Estado</span>
+          <span className="font-semibold capitalize" style={{ color: STATUS_COLOR[d.status] }}>{d.status}</span>
+        </div>
       </div>
-      <div className="flex justify-between gap-4">
-        <span className="text-slate-500">Valor</span>
-        <span className="font-bold" style={{ color: STATUS_COLOR[d.status] }}>{d.y?.toFixed(2)} {hovered.unit}</span>
-      </div>
-      <div className="flex justify-between gap-4">
-        <span className="text-slate-500">Estado</span>
-        <span className="font-semibold capitalize" style={{ color: STATUS_COLOR[d.status] }}>{d.status}</span>
-      </div>
-      <p className="text-[10px] text-slate-300 mt-1.5">{new Date(d.sampleDate).toLocaleDateString('es-CO')}</p>
+      {anomalies.length > 0 && (
+        <div className="pt-2 space-y-1">
+          <p className="text-[10px] font-bold text-slate-600">Otras anomalías:</p>
+          {anomalies.map((anom, i) => (
+            <div key={i} className="flex justify-between gap-2 text-[11px]">
+              <span className="text-slate-600">{anom.label}:</span>
+              <span className={anom.status === 'high' ? 'font-bold text-red-600' : 'font-bold text-blue-600'}>
+                {anom.value.toFixed(1)} {anom.unit}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-[10px] text-slate-300 mt-2">{new Date(d.sampleDate).toLocaleDateString('es-CO')}</p>
     </div>
   )
 }
@@ -254,14 +345,16 @@ function ScatterTooltipCard({ hovered }: { hovered: HoveredPoint }) {
 interface VariableScatterProps {
   data: ChartPoint[]
   limit: LimitData | null
+  allLimits: LimitData[]
   unit: string
   height: number
   compact?: boolean
   highlightedAssetId?: string | null
+  yVarKey: string
   onPointClick?: (assetId: string) => void
 }
 
-function VariableScatterChart({ data, limit, unit, height, compact = false, highlightedAssetId, onPointClick }: VariableScatterProps) {
+function VariableScatterChart({ data, limit, allLimits, unit, height, compact = false, highlightedAssetId, yVarKey, onPointClick }: VariableScatterProps) {
   const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const trendLine = useMemo(() => buildTrendLine(data), [data])
@@ -340,12 +433,12 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
                 onMouseEnter={(e) => {
                   const rect = containerRef.current?.getBoundingClientRect()
                   if (!rect) return
-                  setHoveredPoint({ point: payload, relX: e.clientX - rect.left, relY: e.clientY - rect.top, unit })
+                  setHoveredPoint({ point: payload, relX: e.clientX - rect.left, relY: e.clientY - rect.top, unit, limit, allLimits, yVarKey })
                 }}
                 onMouseMove={(e) => {
                   const rect = containerRef.current?.getBoundingClientRect()
                   if (!rect) return
-                  setHoveredPoint({ point: payload, relX: e.clientX - rect.left, relY: e.clientY - rect.top, unit })
+                  setHoveredPoint({ point: payload, relX: e.clientX - rect.left, relY: e.clientY - rect.top, unit, limit, allLimits, yVarKey })
                 }}
                 onMouseLeave={() => setHoveredPoint(null)}
               />
@@ -714,9 +807,11 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
           <VariableScatterChart
             data={scatterData}
             limit={currentLimits}
+            allLimits={limits}
             unit={currentVarMeta?.unit ?? ''}
             height={340}
             highlightedAssetId={highlightedAssetId}
+            yVarKey={selectedVariable}
             onPointClick={handlePointClick}
           />
 
@@ -900,10 +995,12 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                 <VariableScatterChart
                   data={data}
                   limit={lim}
+                  allLimits={limits}
                   unit={v.unit}
                   height={200}
                   compact
                   highlightedAssetId={highlightedAssetId}
+                  yVarKey={v.key}
                   onPointClick={handlePointClick}
                 />
               </div>
