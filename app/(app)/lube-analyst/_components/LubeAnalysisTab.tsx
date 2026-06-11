@@ -209,6 +209,26 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
     [limits, selectedComponentType, selectedVariable]
   )
 
+  // Y-axis domain: include all data points + limit lines, with 15% padding
+  const yDomain = useMemo((): [number, number] => {
+    const vals = scatterData.map(p => p.y).filter(v => isFinite(v))
+    if (vals.length === 0) return [0, 100]
+    let lo = Math.min(...vals)
+    let hi = Math.max(...vals)
+    if (currentLimits) {
+      const condMax = currentLimits.condemnedMax
+      const critMax = currentLimits.criticalMax
+      if (condMax != null && condMax < 999) hi = Math.max(hi, condMax)
+      else if (critMax < 999) hi = Math.max(hi, critMax)
+      const condMin = currentLimits.condemnedMin
+      const critMin = currentLimits.criticalMin
+      if (condMin != null) lo = Math.min(lo, condMin)
+      else if (critMin != null) lo = Math.min(lo, critMin)
+    }
+    const pad = Math.max((hi - lo) * 0.15, hi * 0.08, 1)
+    return [Math.max(0, parseFloat((lo - pad).toFixed(3))), parseFloat((hi + pad).toFixed(3))]
+  }, [scatterData, currentLimits])
+
   // Severity counts
   const severityCounts = useMemo(() => ({
     normal: scatterData.filter(p => p.status === 'normal').length,
@@ -365,6 +385,7 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                   dataKey="x"
                   type="number"
                   domain={['auto', 'auto']}
+                  allowDataOverflow={true}
                   tickFormatter={v => `${Math.round(v)}h`}
                   tick={{ fontSize: 10 }}
                   label={{ value: 'Vida del Aceite (h)', position: 'insideBottom', offset: -5, style: { fontSize: 10, fill: '#94a3b8' } }}
@@ -374,20 +395,9 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                   tick={{ fontSize: 10 }}
                   label={{ value: currentVarMeta?.unit, angle: -90, position: 'insideLeft', offset: 15, style: { fontSize: 10, fill: '#94a3b8' } }}
                   width={50}
-                  domain={(() => {
-                    if (scatterData.length === 0) return ['auto', 'auto']
-                    const vals = scatterData.map(p => p.y)
-                    let lo = Math.min(...vals)
-                    let hi = Math.max(...vals)
-                    if (currentLimits) {
-                      if (currentLimits.condemnedMax) hi = Math.max(hi, currentLimits.condemnedMax)
-                      else hi = Math.max(hi, currentLimits.criticalMax)
-                      if (currentLimits.condemnedMin != null) lo = Math.min(lo, currentLimits.condemnedMin)
-                      else if (currentLimits.criticalMin != null) lo = Math.min(lo, currentLimits.criticalMin)
-                    }
-                    const pad = (hi - lo) * 0.15 || hi * 0.15 || 5
-                    return [Math.max(0, lo - pad), hi + pad]
-                  })()}
+                  domain={yDomain}
+                  allowDataOverflow={true}
+                  type="number"
                 />
                 <Tooltip content={<ScatterTooltip />} cursor={false} />
 
