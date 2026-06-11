@@ -262,62 +262,6 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
           label={compact ? undefined : { value: unit, angle: -90, position: 'insideLeft', offset: 12, style: { fontSize: 10, fill: '#94a3b8' } }}
         />
 
-        {/* ── Limit lines: one per threshold, color matches zone ── */}
-        {limit && (
-          <>
-            {/* Upper-bound variables */}
-            {limit.normalMax < 999 && (
-              <ReferenceLine y={limit.normalMax}
-                stroke="#059669" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
-                ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Normal ${limit.normalMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#059669', fontWeight: 700 } }}
-              />
-            )}
-            {limit.cautionMax < 999 && (
-              <ReferenceLine y={limit.cautionMax}
-                stroke="#ca8a04" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
-                ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Precaución ${limit.cautionMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#ca8a04', fontWeight: 700 } }}
-              />
-            )}
-            {limit.criticalMax < 999 && (
-              <ReferenceLine y={limit.criticalMax}
-                stroke="#dc2626" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
-                ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Crítico ${limit.criticalMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#dc2626', fontWeight: 700 } }}
-              />
-            )}
-            {limit.condemnedMax != null && limit.condemnedMax < 999 && (
-              <ReferenceLine y={limit.condemnedMax}
-                stroke="#6d28d9" strokeDasharray="8 4" strokeWidth={compact ? 2 : 3}
-                ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Condenatorio ${limit.condemnedMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#6d28d9', fontWeight: 700 } }}
-              />
-            )}
-            {/* Lower-bound variables (viscosity, TBN) */}
-            {limit.condemnedMin != null && (
-              <ReferenceLine y={limit.condemnedMin}
-                stroke="#6d28d9" strokeDasharray="8 4" strokeWidth={compact ? 2 : 3}
-                ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Cond. mín ${limit.condemnedMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#6d28d9', fontWeight: 700 } }}
-              />
-            )}
-            {limit.criticalMin != null && (
-              <ReferenceLine y={limit.criticalMin}
-                stroke="#dc2626" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
-                ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Crit. mín ${limit.criticalMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#dc2626', fontWeight: 700 } }}
-              />
-            )}
-            {limit.cautionMin != null && (
-              <ReferenceLine y={limit.cautionMin}
-                stroke="#ca8a04" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
-                ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Prec. mín ${limit.cautionMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#ca8a04', fontWeight: 700 } }}
-              />
-            )}
-          </>
-        )}
 
         {/* Trend line (dashed orange like Excel) */}
         {trendLine.length === 2 && (
@@ -371,6 +315,43 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
         />
       </ComposedChart>
     </ResponsiveContainer>
+
+    {/* ── CSS limit lines overlay (bypasses Recharts ReferenceLine bugs) ── */}
+    {limit && (() => {
+      const yAxisW = compact ? 38 : 48
+      const rightM = compact ? 8 : 16
+      const topM = 8
+      const bottomM = (compact ? 4 : 12) + (compact ? 22 : 36)
+      const plotH = height - topM - bottomM
+      const [lo, hi] = yDomain
+      const pct = (v: number) => `${((1 - (v - lo) / (hi - lo)) * 100).toFixed(3)}%`
+      const lw = compact ? '1.5px' : '2px'
+      const lhw = compact ? '2px' : '2.5px'
+
+      const lines: { value: number; color: string; label: string; w: string }[] = []
+      if (limit.normalMax < 999) lines.push({ value: limit.normalMax, color: '#059669', label: `Normal ${limit.normalMax}`, w: lw })
+      if (limit.cautionMax < 999) lines.push({ value: limit.cautionMax, color: '#ca8a04', label: `Precaución ${limit.cautionMax}`, w: lw })
+      if (limit.criticalMax < 999) lines.push({ value: limit.criticalMax, color: '#dc2626', label: `Crítico ${limit.criticalMax}`, w: lw })
+      if (limit.condemnedMax != null && limit.condemnedMax < 999) lines.push({ value: limit.condemnedMax, color: '#6d28d9', label: `Condenatorio ${limit.condemnedMax}`, w: lhw })
+      if (limit.condemnedMin != null) lines.push({ value: limit.condemnedMin, color: '#6d28d9', label: `Cond. mín ${limit.condemnedMin}`, w: lhw })
+      if (limit.criticalMin != null) lines.push({ value: limit.criticalMin, color: '#dc2626', label: `Crít. mín ${limit.criticalMin}`, w: lw })
+      if (limit.cautionMin != null) lines.push({ value: limit.cautionMin, color: '#ca8a04', label: `Prec. mín ${limit.cautionMin}`, w: lw })
+
+      return (
+        <div style={{ position: 'absolute', top: topM, left: yAxisW, right: rightM, height: plotH, pointerEvents: 'none', overflow: 'visible' }}>
+          {lines.filter(l => l.value >= lo && l.value <= hi).map(l => (
+            <div key={l.label} style={{ position: 'absolute', top: pct(l.value), left: 0, right: 0 }}>
+              <div style={{ borderTop: `${l.w} dashed ${l.color}`, width: '100%' }} />
+              {!compact && (
+                <span style={{ position: 'absolute', right: 2, top: -13, fontSize: 9, color: l.color, fontWeight: 700, background: 'rgba(255,255,255,0.85)', padding: '0 2px', borderRadius: 2 }}>
+                  {l.label}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )
+    })()}
     </div>
   )
 }
