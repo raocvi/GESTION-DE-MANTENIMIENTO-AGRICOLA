@@ -314,6 +314,7 @@ model Asset {
   attachments      AssetAttachment[]
   qrCodes          QrCode[]
   hourReadings     HourReading[]
+  lubeComponents   LubeComponent[]
 
   @@map("assets")
 }
@@ -1256,4 +1257,147 @@ model Report {
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
   @@map("reports")
+}
+
+// ============================================================
+// LUBE ANALYST — Análisis de aceite / Mantenimiento predictivo
+// ============================================================
+
+/// Componente lubricado dentro de un equipo (motor, transmisión, hidráulico, etc.)
+model LubeComponent {
+  id                   String    @id @default(cuid())
+  organizationId       String
+  assetId              String
+
+  componentType        String    // motor, transmission, hydraulic, differential, final_drive, brake_wet, reducer, other
+  name                 String    // "Motor FPT N67", "Trans. Powershift", etc.
+  oilCapacityL         Float?
+  recommendedOil       String?   // "AKCELA Engine Oil 15W-40"
+  recommendedViscosity String?   // "15W-40", "10W-30"
+  changeIntervalHours  Float?
+  sampleIntervalHours  Float?    @default(250)
+  lastChangeHours      Float?
+  lastSampleDate       DateTime?
+  criticality          String    @default("high") // low, medium, high, critical
+  status               String    @default("normal") // normal, caution, critical, condemned
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  asset    Asset       @relation(fields: [assetId], references: [id])
+  samples  OilSample[]
+
+  @@index([assetId])
+  @@index([organizationId, status])
+  @@map("lube_components")
+}
+
+/// Muestra de aceite con resultados de laboratorio
+model OilSample {
+  id               String    @id @default(cuid())
+  organizationId   String
+  assetId          String
+  componentId      String
+
+  sampleDate       DateTime
+  receivedDate     DateTime?
+  analysisDate     DateTime?
+  equipmentHours   Float?
+  oilHours         Float?    // horas del aceite en servicio
+  componentHours   Float?    // horas del componente
+
+  lab              String?   @default("Laboratorio IMECOL")
+  externalReportNo String?
+  status           String    @default("normal") // normal, caution, critical, condemned
+  overallDiagnosis String?
+  recommendation   String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Metales de desgaste (ppm)
+  ironFe           Float?
+  copperCu         Float?
+  aluminumAl       Float?
+  chromeCr         Float?
+  leadPb           Float?
+  tinSn            Float?
+  nickelNi         Float?
+  siliconSi        Float?
+  sodiumNa         Float?
+  potassiumK       Float?
+  boronB           Float?
+  molybdenumMo     Float?
+  zincZn           Float?
+  phosphorusP      Float?
+  calciumCa        Float?
+  magnesiumMg      Float?
+  bariumBa         Float?
+  pqIndex          Float?
+
+  // Propiedades físico-químicas
+  viscosity40      Float?    // cSt a 40°C
+  viscosity100     Float?    // cSt a 100°C
+  viscosityIndex   Float?
+  tbn              Float?    // mg KOH/g — Total Base Number
+  tan              Float?    // mg KOH/g — Total Acid Number
+  oxidation        Float?    // abs/cm — FTIR
+  nitration        Float?
+  sulfation        Float?
+  soot             Float?    // % hollín (FTIR)
+  waterPct         Float?    // % agua
+  glycolPpm        Float?    // ppm glicol
+  fuelPct          Float?    // % dilución combustible
+  isoParticleCode  String?   // ISO 4406 p.ej. "18/16/13"
+
+  component  LubeComponent  @relation(fields: [componentId], references: [id])
+  diagnoses  OilDiagnosis[]
+
+  @@index([componentId])
+  @@index([assetId])
+  @@index([organizationId, status])
+  @@map("oil_samples")
+}
+
+/// Diagnóstico individual generado por el motor de análisis
+model OilDiagnosis {
+  id                String   @id @default(cuid())
+  sampleId          String
+  variable          String   // "ironFe", "siliconSi", "tbn", etc.
+  severity          String   // normal, caution, critical, condemned
+  possibleCause     String
+  recommendation    String
+  priority          Int      @default(1) // 1=critical, 2=high, 3=medium, 4=low
+  requiresOilChange Boolean  @default(false)
+  requiresInspection Boolean @default(false)
+  requiresStop      Boolean  @default(false)
+  requiresResample  Boolean  @default(false)
+  nextSampleHours   Float?
+  createdAt         DateTime @default(now())
+
+  sample  OilSample @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+
+  @@index([sampleId])
+  @@map("oil_diagnoses")
+}
+
+/// Límites de alarma configurables por tipo de componente y variable
+model OilLimit {
+  id            String   @id @default(cuid())
+  organizationId String?  // null = límite global por defecto
+  componentType String   // motor, transmission, hydraulic, differential, final_drive, brake_wet, reducer
+  equipmentType String?  // tractor, harvester, all
+  brand         String?
+  variable      String   // "ironFe", "viscosity40", "tbn", etc.
+  unit          String   @default("ppm")
+  normalMax     Float
+  cautionMax    Float
+  criticalMax   Float
+  condemnedMax  Float?
+  source        String   @default("industry_best_practice")
+  notes         String?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([componentType, variable, organizationId])
+  @@map("oil_limits")
 }
