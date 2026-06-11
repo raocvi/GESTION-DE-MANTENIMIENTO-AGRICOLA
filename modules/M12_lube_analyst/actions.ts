@@ -452,6 +452,10 @@ export interface LimitData {
   cautionMax: number
   criticalMax: number
   condemnedMax: number | null
+  normalMin: number | null
+  cautionMin: number | null
+  criticalMin: number | null
+  condemnedMin: number | null
 }
 
 export interface FleetAnalysisData {
@@ -491,7 +495,7 @@ export async function getFleetAnalysisData(): Promise<FleetAnalysisData> {
     }),
     db.oilLimit.findMany({
       where: { organizationId: '' },
-      select: { componentType: true, variable: true, unit: true, normalMax: true, cautionMax: true, criticalMax: true, condemnedMax: true },
+      select: { componentType: true, variable: true, unit: true, normalMax: true, cautionMax: true, criticalMax: true, condemnedMax: true, normalMin: true, cautionMin: true, criticalMin: true, condemnedMin: true },
     }),
     db.client.findMany({
       where: { organizationId: orgId, isActive: true },

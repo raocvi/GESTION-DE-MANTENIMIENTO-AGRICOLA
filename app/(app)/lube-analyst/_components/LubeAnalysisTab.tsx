@@ -364,33 +364,83 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                 <YAxis
                   tick={{ fontSize: 10 }}
                   label={{ value: currentVarMeta?.unit, angle: -90, position: 'insideLeft', offset: 15, style: { fontSize: 10, fill: '#94a3b8' } }}
-                  width={45}
+                  width={50}
+                  domain={(() => {
+                    if (scatterData.length === 0) return ['auto', 'auto']
+                    const vals = scatterData.map(p => p.y)
+                    let lo = Math.min(...vals)
+                    let hi = Math.max(...vals)
+                    if (currentLimits) {
+                      if (currentLimits.condemnedMax) hi = Math.max(hi, currentLimits.condemnedMax)
+                      else hi = Math.max(hi, currentLimits.criticalMax)
+                      if (currentLimits.condemnedMin != null) lo = Math.min(lo, currentLimits.condemnedMin)
+                      else if (currentLimits.criticalMin != null) lo = Math.min(lo, currentLimits.criticalMin)
+                    }
+                    const pad = (hi - lo) * 0.15 || hi * 0.15 || 5
+                    return [Math.max(0, lo - pad), hi + pad]
+                  })()}
                 />
                 <Tooltip content={<ScatterTooltip />} cursor={false} />
 
-                {/* Limit reference lines */}
+                {/* Limit reference lines — upper bounds */}
                 {currentLimits && (
                   <>
-                    <ReferenceLine
-                      y={currentLimits.normalMax}
-                      stroke="#10b981" strokeDasharray="5 3" strokeWidth={1.5}
-                      label={{ value: `Normal ≤${currentLimits.normalMax}`, position: 'right', style: { fontSize: 9, fill: '#10b981' } }}
-                    />
-                    <ReferenceLine
-                      y={currentLimits.cautionMax}
-                      stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={1.5}
-                      label={{ value: `Precaución ≤${currentLimits.cautionMax}`, position: 'right', style: { fontSize: 9, fill: '#f59e0b' } }}
-                    />
-                    <ReferenceLine
-                      y={currentLimits.criticalMax}
-                      stroke="#ef4444" strokeDasharray="5 3" strokeWidth={2}
-                      label={{ value: `Crítico ≤${currentLimits.criticalMax}`, position: 'right', style: { fontSize: 9, fill: '#ef4444' } }}
-                    />
-                    {currentLimits.condemnedMax && (
+                    {/* Upper bounds */}
+                    {currentLimits.normalMax < 999 && (
+                      <ReferenceLine
+                        y={currentLimits.normalMax}
+                        stroke="#10b981" strokeDasharray="5 3" strokeWidth={1.5}
+                        label={{ value: `Norm.máx ${currentLimits.normalMax}`, position: 'insideTopRight', style: { fontSize: 8, fill: '#10b981' } }}
+                      />
+                    )}
+                    {currentLimits.cautionMax < 999 && (
+                      <ReferenceLine
+                        y={currentLimits.cautionMax}
+                        stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={1.5}
+                        label={{ value: `Prec.máx ${currentLimits.cautionMax}`, position: 'insideTopRight', style: { fontSize: 8, fill: '#f59e0b' } }}
+                      />
+                    )}
+                    {currentLimits.criticalMax < 999 && (
+                      <ReferenceLine
+                        y={currentLimits.criticalMax}
+                        stroke="#ef4444" strokeDasharray="5 3" strokeWidth={2}
+                        label={{ value: `Crit.máx ${currentLimits.criticalMax}`, position: 'insideTopRight', style: { fontSize: 8, fill: '#ef4444' } }}
+                      />
+                    )}
+                    {currentLimits.condemnedMax && currentLimits.condemnedMax < 999 && (
                       <ReferenceLine
                         y={currentLimits.condemnedMax}
                         stroke="#7c3aed" strokeDasharray="4 2" strokeWidth={2}
-                        label={{ value: `Condenatorio ≤${currentLimits.condemnedMax}`, position: 'right', style: { fontSize: 9, fill: '#7c3aed' } }}
+                        label={{ value: `Cond.máx ${currentLimits.condemnedMax}`, position: 'insideTopRight', style: { fontSize: 8, fill: '#7c3aed' } }}
+                      />
+                    )}
+                    {/* Lower bounds (range variables: viscosity, TBN) */}
+                    {currentLimits.normalMin != null && (
+                      <ReferenceLine
+                        y={currentLimits.normalMin}
+                        stroke="#10b981" strokeDasharray="5 3" strokeWidth={1.5}
+                        label={{ value: `Norm.mín ${currentLimits.normalMin}`, position: 'insideBottomRight', style: { fontSize: 8, fill: '#10b981' } }}
+                      />
+                    )}
+                    {currentLimits.cautionMin != null && (
+                      <ReferenceLine
+                        y={currentLimits.cautionMin}
+                        stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={1.5}
+                        label={{ value: `Prec.mín ${currentLimits.cautionMin}`, position: 'insideBottomRight', style: { fontSize: 8, fill: '#f59e0b' } }}
+                      />
+                    )}
+                    {currentLimits.criticalMin != null && (
+                      <ReferenceLine
+                        y={currentLimits.criticalMin}
+                        stroke="#ef4444" strokeDasharray="5 3" strokeWidth={2}
+                        label={{ value: `Crit.mín ${currentLimits.criticalMin}`, position: 'insideBottomRight', style: { fontSize: 8, fill: '#ef4444' } }}
+                      />
+                    )}
+                    {currentLimits.condemnedMin != null && (
+                      <ReferenceLine
+                        y={currentLimits.condemnedMin}
+                        stroke="#7c3aed" strokeDasharray="4 2" strokeWidth={2}
+                        label={{ value: `Cond.mín ${currentLimits.condemnedMin}`, position: 'insideBottomRight', style: { fontSize: 8, fill: '#7c3aed' } }}
                       />
                     )}
                   </>
@@ -503,13 +553,21 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
               {currentLimits && (
                 <div className="pt-3 border-t border-slate-100">
                   <p className="text-[10px] font-bold text-slate-400 mb-2">LÍMITES</p>
-                  <div className="space-y-1 text-[11px]">
-                    <div className="flex justify-between"><span className="text-emerald-600">Normal</span><span className="font-bold">≤ {currentLimits.normalMax}</span></div>
-                    <div className="flex justify-between"><span className="text-amber-600">Precaución</span><span className="font-bold">≤ {currentLimits.cautionMax}</span></div>
-                    <div className="flex justify-between"><span className="text-rose-600">Crítico</span><span className="font-bold">≤ {currentLimits.criticalMax}</span></div>
-                    {currentLimits.condemnedMax && (
-                      <div className="flex justify-between"><span className="text-violet-600">Condenatorio</span><span className="font-bold">≤ {currentLimits.condemnedMax}</span></div>
-                    )}
+                  <div className="space-y-1.5 text-[10px]">
+                    {/* Show range (min–max) or just upper bound */}
+                    {[
+                      { label: 'Normal',       color: '#10b981', max: currentLimits.normalMax,    min: currentLimits.normalMin    },
+                      { label: 'Precaución',   color: '#f59e0b', max: currentLimits.cautionMax,   min: currentLimits.cautionMin   },
+                      { label: 'Crítico',      color: '#ef4444', max: currentLimits.criticalMax,  min: currentLimits.criticalMin  },
+                      { label: 'Condenatorio', color: '#7c3aed', max: currentLimits.condemnedMax, min: currentLimits.condemnedMin },
+                    ].filter(r => r.max != null && r.max < 999).map(r => (
+                      <div key={r.label} className="flex justify-between items-center">
+                        <span style={{ color: r.color }} className="font-semibold">{r.label}</span>
+                        <span className="font-bold text-slate-600">
+                          {r.min != null ? `${r.min}–${r.max}` : `≤ ${r.max}`}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
