@@ -34,9 +34,9 @@ export default async function NewWorkOrderPage({ searchParams }: { searchParams:
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Prioridad</label>
-            <select name="priority" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+            <select name="priority" defaultValue="medium" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
               <option value="low">Baja</option>
-              <option value="medium" selected>Media</option>
+              <option value="medium">Media</option>
               <option value="high">Alta</option>
               <option value="critical">Crítica</option>
               <option value="stopped">Equipo Detenido (AOG)</option>
