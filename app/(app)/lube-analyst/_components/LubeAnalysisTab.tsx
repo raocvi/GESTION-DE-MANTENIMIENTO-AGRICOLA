@@ -165,9 +165,9 @@ function buildYDomain(data: ChartPoint[], limit: LimitData | null): [number, num
   let lo = Math.min(...vals)
   let hi = Math.max(...vals)
   if (limit) {
-    if (limit.condemnedMax != null && limit.condemnedMax < 999) hi = Math.max(hi, limit.condemnedMax * 1.20)
+    if (limit.condemnedMax != null && limit.condemnedMax < 999) hi = Math.max(hi, limit.condemnedMax)
     else if (limit.criticalMax < 999) hi = Math.max(hi, limit.criticalMax)
-    if (limit.condemnedMin != null) lo = Math.min(lo, limit.condemnedMin * 0.80)
+    if (limit.condemnedMin != null) lo = Math.min(lo, limit.condemnedMin)
     else if (limit.criticalMin != null) lo = Math.min(lo, limit.criticalMin)
   }
   const pad = Math.max((hi - lo) * 0.12, hi * 0.05, 0.5)
@@ -262,39 +262,60 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
           label={compact ? undefined : { value: unit, angle: -90, position: 'insideLeft', offset: 12, style: { fontSize: 10, fill: '#94a3b8' } }}
         />
 
-        {/* ── Limit lines: condemned (amber) + condemned×1.2 (red) ── */}
+        {/* ── Limit lines: one per threshold, color matches zone ── */}
         {limit && (
           <>
-            {/* Upper-bound variables (Fe, Cu, soot…) */}
-            {limit.condemnedMax != null && limit.condemnedMax < 999 && (<>
-              <ReferenceLine
-                y={limit.condemnedMax}
-                stroke="#eab308" strokeDasharray="10 5" strokeWidth={compact ? 1.5 : 2.5}
+            {/* Upper-bound variables */}
+            {limit.normalMax < 999 && (
+              <ReferenceLine y={limit.normalMax}
+                stroke="#10b981" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Cond. ${limit.condemnedMax} ${unit}`, position: 'insideTopRight', style: { fontSize: labelFs, fill: '#eab308', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Normal ${limit.normalMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#10b981', fontWeight: 700 } }}
               />
-              <ReferenceLine
-                y={limit.condemnedMax * 1.20}
-                stroke="#ef4444" strokeDasharray="10 5" strokeWidth={compact ? 1.5 : 2.5}
+            )}
+            {limit.cautionMax < 999 && (
+              <ReferenceLine y={limit.cautionMax}
+                stroke="#eab308" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `+20%  ${(limit.condemnedMax * 1.20).toFixed(0)} ${unit}`, position: 'insideTopRight', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Precaución ${limit.cautionMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#eab308', fontWeight: 700 } }}
               />
-            </>)}
+            )}
+            {limit.criticalMax < 999 && (
+              <ReferenceLine y={limit.criticalMax}
+                stroke="#ef4444" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
+                ifOverflow="extendDomain"
+                label={compact ? undefined : { value: `Crítico ${limit.criticalMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
+              />
+            )}
+            {limit.condemnedMax != null && limit.condemnedMax < 999 && (
+              <ReferenceLine y={limit.condemnedMax}
+                stroke="#7c3aed" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
+                ifOverflow="extendDomain"
+                label={compact ? undefined : { value: `Condenatorio ${limit.condemnedMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#7c3aed', fontWeight: 700 } }}
+              />
+            )}
             {/* Lower-bound variables (viscosity, TBN) */}
-            {limit.condemnedMin != null && (<>
-              <ReferenceLine
-                y={limit.condemnedMin}
-                stroke="#eab308" strokeDasharray="10 5" strokeWidth={compact ? 1.5 : 2.5}
+            {limit.condemnedMin != null && (
+              <ReferenceLine y={limit.condemnedMin}
+                stroke="#7c3aed" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Cond. ${limit.condemnedMin} ${unit}`, position: 'insideBottomRight', style: { fontSize: labelFs, fill: '#eab308', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Cond. mín ${limit.condemnedMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#7c3aed', fontWeight: 700 } }}
               />
-              <ReferenceLine
-                y={limit.condemnedMin * 0.80}
-                stroke="#ef4444" strokeDasharray="10 5" strokeWidth={compact ? 1.5 : 2.5}
+            )}
+            {limit.criticalMin != null && (
+              <ReferenceLine y={limit.criticalMin}
+                stroke="#ef4444" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `-20%  ${(limit.condemnedMin * 0.80).toFixed(1)} ${unit}`, position: 'insideBottomRight', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Crit. mín ${limit.criticalMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
               />
-            </>)}
+            )}
+            {limit.cautionMin != null && (
+              <ReferenceLine y={limit.cautionMin}
+                stroke="#eab308" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
+                ifOverflow="extendDomain"
+                label={compact ? undefined : { value: `Prec. mín ${limit.cautionMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#eab308', fontWeight: 700 } }}
+              />
+            )}
           </>
         )}
 
