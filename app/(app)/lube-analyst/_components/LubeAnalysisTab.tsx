@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import {
   ComposedChart, Scatter, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ReferenceLine, ResponsiveContainer,
+  ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 import { TrendingUp, BarChart2, ChevronRight, X, Info, ArrowUpRight } from 'lucide-react'
 import type { ScatterPoint, LimitData } from '@/modules/M12_lube_analyst/actions'
@@ -84,6 +84,23 @@ function linearRegression(pts: { x: number; y: number }[]) {
   return { slope, intercept }
 }
 
+function getPointColor(y: number, limit: LimitData | null): string {
+  if (!limit) return '#f59e0b'
+  // Upper-bound variables (Fe, Cu, soot, oxidation, etc.)
+  if (limit.condemnedMax != null && limit.condemnedMax < 999) {
+    if (y > limit.condemnedMax * 1.20) return '#7c3aed'  // violet — >20% sobre condenatorio
+    if (y > limit.condemnedMax)        return '#ef4444'  // red    — supera condenatorio
+    return '#f59e0b'                                      // amber  — por debajo del condenatorio
+  }
+  // Lower-bound variables (viscosity, TBN)
+  if (limit.condemnedMin != null) {
+    if (y < limit.condemnedMin * 0.80) return '#7c3aed'
+    if (y < limit.condemnedMin)        return '#ef4444'
+    return '#f59e0b'
+  }
+  return '#f59e0b'
+}
+
 function computeStats(values: number[]) {
   if (values.length === 0) return null
   const n = values.length
@@ -155,29 +172,31 @@ function buildYDomain(data: ChartPoint[], limit: LimitData | null): [number, num
   return [Math.max(0, parseFloat((lo - pad).toFixed(3))), parseFloat((hi + pad).toFixed(3))]
 }
 
-// ─── Tooltip ───
+// ─── Tooltip (custom — bypasses Recharts axis hit detection) ───
 
-function ScatterTooltip({ active, payload }: any) {
-  if (!active || !payload?.length) return null
-  const d = payload.find((p: any) => p.payload?.assetCode)?.payload
-  if (!d) return null
+interface HoveredPoint {
+  point: ChartPoint
+  relX: number
+  relY: number
+  unit: string
+}
+
+function ScatterTooltipCard({ hovered }: { hovered: HoveredPoint }) {
+  const d = hovered.point
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-[12px] min-w-[160px]">
+    <div
+      style={{ position: 'absolute', left: hovered.relX + 10, top: hovered.relY + 10, pointerEvents: 'none', zIndex: 50 }}
+      className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-[12px] min-w-[160px]"
+    >
       <p className="font-bold text-slate-700 mb-1">{d.assetCode} — {d.assetName}</p>
       <p className="text-slate-400 text-[10px] mb-2">{d.clientName}</p>
       <div className="flex justify-between gap-4">
         <span className="text-slate-500">Vida aceite</span>
         <span className="font-bold text-slate-700">{Math.round(d.x)}h</span>
       </div>
-      {d.equipmentHours > 0 && (
-        <div className="flex justify-between gap-4">
-          <span className="text-slate-500">Horómetro</span>
-          <span className="font-bold text-slate-700">{Math.round(d.equipmentHours)}h</span>
-        </div>
-      )}
       <div className="flex justify-between gap-4">
         <span className="text-slate-500">Valor</span>
-        <span className="font-bold" style={{ color: STATUS_COLOR[d.status] }}>{d.y?.toFixed(2)}</span>
+        <span className="font-bold" style={{ color: STATUS_COLOR[d.status] }}>{d.y?.toFixed(2)} {hovered.unit}</span>
       </div>
       <div className="flex justify-between gap-4">
         <span className="text-slate-500">Estado</span>
@@ -201,6 +220,8 @@ interface VariableScatterProps {
 }
 
 function VariableScatterChart({ data, limit, unit, height, compact = false, highlightedAssetId, onPointClick }: VariableScatterProps) {
+  const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const trendLine = useMemo(() => buildTrendLine(data), [data])
   const yDomain = useMemo(() => buildYDomain(data, limit), [data, limit])
 
@@ -216,6 +237,8 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
   const labelFs = compact ? 8 : 9
 
   return (
+    <div className="relative" ref={containerRef}>
+      {hoveredPoint && <ScatterTooltipCard hovered={hoveredPoint} />}
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart margin={{ top: 8, right: compact ? 8 : 16, bottom: compact ? 4 : 12, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -236,60 +259,40 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
           width={compact ? 38 : 48}
           label={compact ? undefined : { value: unit, angle: -90, position: 'insideLeft', offset: 12, style: { fontSize: 10, fill: '#94a3b8' } }}
         />
-        <Tooltip content={<ScatterTooltip />} cursor={false} />
 
-        {/* Limit lines — upper bounds (red dash-dot style like Excel) */}
+        {/* ── Limit lines: condemned (amber) + condemned×1.2 (red) ── */}
         {limit && (
           <>
-            {limit.cautionMax < 999 && (
-              <ReferenceLine
-                y={limit.cautionMax}
-                stroke="#f59e0b" strokeDasharray="8 4 2 4" strokeWidth={1.8}
-                ifOverflow="extendDomain"
-                label={{ value: `${limit.cautionMax}`, position: 'right', style: { fontSize: labelFs, fill: '#f59e0b', fontWeight: 700 } }}
-              />
-            )}
-            {limit.criticalMax < 999 && (
-              <ReferenceLine
-                y={limit.criticalMax}
-                stroke="#ef4444" strokeDasharray="8 4 2 4" strokeWidth={2}
-                ifOverflow="extendDomain"
-                label={{ value: `${limit.criticalMax}`, position: 'right', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
-              />
-            )}
-            {limit.condemnedMax != null && limit.condemnedMax < 999 && (
+            {/* Upper-bound variables (Fe, Cu, soot…) */}
+            {limit.condemnedMax != null && limit.condemnedMax < 999 && (<>
               <ReferenceLine
                 y={limit.condemnedMax}
-                stroke="#7c3aed" strokeDasharray="8 4 2 4" strokeWidth={2}
+                stroke="#eab308" strokeDasharray="10 5" strokeWidth={compact ? 1.5 : 2.5}
                 ifOverflow="extendDomain"
-                label={{ value: `${limit.condemnedMax}`, position: 'right', style: { fontSize: labelFs, fill: '#7c3aed', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Cond. ${limit.condemnedMax} ${unit}`, position: 'insideTopRight', style: { fontSize: labelFs, fill: '#eab308', fontWeight: 700 } }}
               />
-            )}
-            {/* Lower bounds (viscosity / TBN) */}
-            {limit.cautionMin != null && (
               <ReferenceLine
-                y={limit.cautionMin}
-                stroke="#f59e0b" strokeDasharray="8 4 2 4" strokeWidth={1.8}
+                y={limit.condemnedMax * 1.20}
+                stroke="#ef4444" strokeDasharray="10 5" strokeWidth={compact ? 1.5 : 2.5}
                 ifOverflow="extendDomain"
-                label={{ value: `${limit.cautionMin}`, position: 'right', style: { fontSize: labelFs, fill: '#f59e0b', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `+20%  ${(limit.condemnedMax * 1.20).toFixed(0)} ${unit}`, position: 'insideTopRight', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
               />
-            )}
-            {limit.criticalMin != null && (
-              <ReferenceLine
-                y={limit.criticalMin}
-                stroke="#ef4444" strokeDasharray="8 4 2 4" strokeWidth={2}
-                ifOverflow="extendDomain"
-                label={{ value: `${limit.criticalMin}`, position: 'right', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
-              />
-            )}
-            {limit.condemnedMin != null && (
+            </>)}
+            {/* Lower-bound variables (viscosity, TBN) */}
+            {limit.condemnedMin != null && (<>
               <ReferenceLine
                 y={limit.condemnedMin}
-                stroke="#7c3aed" strokeDasharray="8 4 2 4" strokeWidth={2}
+                stroke="#eab308" strokeDasharray="10 5" strokeWidth={compact ? 1.5 : 2.5}
                 ifOverflow="extendDomain"
-                label={{ value: `${limit.condemnedMin}`, position: 'right', style: { fontSize: labelFs, fill: '#7c3aed', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Cond. ${limit.condemnedMin} ${unit}`, position: 'insideBottomRight', style: { fontSize: labelFs, fill: '#eab308', fontWeight: 700 } }}
               />
-            )}
+              <ReferenceLine
+                y={limit.condemnedMin * 0.80}
+                stroke="#ef4444" strokeDasharray="10 5" strokeWidth={compact ? 1.5 : 2.5}
+                ifOverflow="extendDomain"
+                label={compact ? undefined : { value: `-20%  ${(limit.condemnedMin * 0.80).toFixed(1)} ${unit}`, position: 'insideBottomRight', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
+              />
+            </>)}
           </>
         )}
 
@@ -317,7 +320,7 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
             const { cx, cy, payload } = props
             if (!isFinite(cx) || !isFinite(cy)) return <g />
             const isHighlighted = payload.assetId === highlightedAssetId
-            const color = STATUS_COLOR[payload.status] ?? '#10b981'
+            const color = getPointColor(payload.y, limit)
             return (
               <circle
                 cx={cx} cy={cy}
@@ -328,12 +331,24 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
                 strokeWidth={isHighlighted ? 2 : 0.5}
                 style={{ cursor: onPointClick ? 'pointer' : 'default' }}
                 onClick={() => onPointClick?.(payload.assetId)}
+                onMouseEnter={(e) => {
+                  const rect = containerRef.current?.getBoundingClientRect()
+                  if (!rect) return
+                  setHoveredPoint({ point: payload, relX: e.clientX - rect.left, relY: e.clientY - rect.top, unit })
+                }}
+                onMouseMove={(e) => {
+                  const rect = containerRef.current?.getBoundingClientRect()
+                  if (!rect) return
+                  setHoveredPoint({ point: payload, relX: e.clientX - rect.left, relY: e.clientY - rect.top, unit })
+                }}
+                onMouseLeave={() => setHoveredPoint(null)}
               />
             )
           }}
         />
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   )
 }
 
@@ -396,12 +411,17 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
     [limits, selectedComponentType, selectedVariable]
   )
 
-  // Severity counts
-  const severityCounts = useMemo(() => ({
-    normal: scatterData.filter(p => p.status === 'normal').length,
-    caution: scatterData.filter(p => p.status === 'caution').length,
-    critical: scatterData.filter(p => p.status === 'critical' || p.status === 'condemned').length,
-  }), [scatterData])
+  // Color-zone counts based on condemned limit (3 zones)
+  const severityCounts = useMemo(() => {
+    const counts = { below: 0, condemned: 0, extreme: 0 }
+    scatterData.forEach(p => {
+      const c = getPointColor(p.y, currentLimits)
+      if      (c === '#f59e0b') counts.below++
+      else if (c === '#ef4444') counts.condemned++
+      else if (c === '#7c3aed') counts.extreme++
+    })
+    return counts
+  }, [scatterData, currentLimits])
 
   function handlePointClick(assetId: string) {
     setHighlightedAssetId(assetId)
@@ -526,9 +546,9 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
               </p>
             </div>
             <div className="flex items-center gap-3 text-[11px]">
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Normal ({severityCounts.normal})</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Precaución ({severityCounts.caution})</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />Crítico ({severityCounts.critical})</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" />Bajo límite ({severityCounts.below})</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />Condenado ({severityCounts.condemned})</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-violet-600" />Extremo +20% ({severityCounts.extreme})</span>
             </div>
           </div>
 
@@ -588,9 +608,9 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
               <div className="pt-3 border-t border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 mb-2">DISTRIBUCIÓN</p>
                 {[
-                  { label: 'Normal', count: severityCounts.normal, color: '#10b981' },
-                  { label: 'Precaución', count: severityCounts.caution, color: '#f59e0b' },
-                  { label: 'Crítico', count: severityCounts.critical, color: '#ef4444' },
+                  { label: 'Bajo límite', count: severityCounts.below,     color: '#f59e0b' },
+                  { label: 'Condenado',   count: severityCounts.condemned, color: '#ef4444' },
+                  { label: 'Extremo',     count: severityCounts.extreme,   color: '#7c3aed' },
                 ].map(s => (
                   <div key={s.label} className="mb-2">
                     <div className="flex justify-between text-[10px] mb-0.5">
