@@ -181,6 +181,29 @@ interface CrossPoint {
   assetId: string; assetCode: string; assetName: string; clientName: string; status: string; sampleDate: string
 }
 
+function pearsonR(data: CrossPoint[]): number | null {
+  const n = data.length
+  if (n < 3) return null
+  const mx = data.reduce((s, p) => s + p.x, 0) / n
+  const my = data.reduce((s, p) => s + p.y, 0) / n
+  let num = 0, dx2 = 0, dy2 = 0
+  for (const p of data) {
+    const dx = p.x - mx, dy = p.y - my
+    num += dx * dy; dx2 += dx * dx; dy2 += dy * dy
+  }
+  const denom = Math.sqrt(dx2 * dy2)
+  return denom === 0 ? null : Math.max(-1, Math.min(1, num / denom))
+}
+
+function rLabel(r: number): { text: string; color: string } {
+  const a = Math.abs(r)
+  const sign = r >= 0 ? '+' : '−'
+  if (a >= 0.99) return { text: `Correlación ${r > 0 ? 'positiva' : 'negativa'} perfecta`, color: r > 0 ? '#059669' : '#dc2626' }
+  if (a >= 0.70) return { text: `Correlación ${r > 0 ? 'positiva' : 'negativa'} fuerte`, color: r > 0 ? '#059669' : '#dc2626' }
+  if (a >= 0.30) return { text: `Correlación ${r > 0 ? 'positiva' : 'negativa'} moderada`, color: r > 0 ? '#ca8a04' : '#f97316' }
+  return { text: 'Sin correlación lineal', color: '#94a3b8' }
+}
+
 function buildCrossData(points: ScatterPoint[], xKey: string, yKey: string): CrossPoint[] {
   return points.filter(p => {
     const x = (p as any)[xKey]; const y = (p as any)[yKey]
@@ -393,10 +416,24 @@ function CrossVarChart({ data, xLabel, xUnit, yLabel, yUnit, yLimit, height = 24
   const yPad = Math.max((yHi - yLo) * 0.12, yHi * 0.05, 0.5)
   const yDomain: [number, number] = [Math.max(0, yLo - yPad), yHi + yPad]
 
+  const r = pearsonR(data)
+  const corr = r !== null ? rLabel(r) : null
+
   if (data.length === 0) return <div style={{ height }} className="flex items-center justify-center text-slate-400 text-[12px]">Sin datos</div>
 
   return (
     <div className="relative" ref={containerRef}>
+      {corr && (
+        <div style={{ position: 'absolute', top: 6, right: 20, zIndex: 10, pointerEvents: 'none' }}
+          className="flex flex-col items-end gap-0.5">
+          <span style={{ fontSize: 11, fontWeight: 700, color: corr.color, background: 'rgba(255,255,255,0.9)', padding: '1px 5px', borderRadius: 4, border: `1px solid ${corr.color}33` }}>
+            r = {r!.toFixed(3)}
+          </span>
+          <span style={{ fontSize: 9, color: corr.color, background: 'rgba(255,255,255,0.85)', padding: '0 4px', borderRadius: 3 }}>
+            {corr.text}
+          </span>
+        </div>
+      )}
       {hovered && (
         <div style={{ position: 'absolute', left: hovered.relX + 10, top: hovered.relY + 10, pointerEvents: 'none', zIndex: 50 }}
           className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-[12px] min-w-[150px]">
