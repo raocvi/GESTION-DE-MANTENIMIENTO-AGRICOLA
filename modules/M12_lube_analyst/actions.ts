@@ -417,6 +417,120 @@ export async function getAssetsWithLubeStatus(clientId?: string) {
   })
 }
 
+// ─── Fleet scatter analysis data ───
+
+export interface ScatterPoint {
+  assetId: string
+  assetCode: string
+  assetName: string
+  clientId: string
+  clientName: string
+  componentType: string
+  sampleDate: string
+  equipmentHours: number
+  ironFe: number | null
+  copperCu: number | null
+  aluminumAl: number | null
+  siliconSi: number | null
+  leadPb: number | null
+  pqIndex: number | null
+  tbn: number | null
+  waterPct: number | null
+  viscosity40: number | null
+  oxidation: number | null
+  fuelPct: number | null
+  soot: number | null
+  glycolPpm: number | null
+  status: string
+}
+
+export interface LimitData {
+  componentType: string
+  variable: string
+  unit: string
+  normalMax: number
+  cautionMax: number
+  criticalMax: number
+  condemnedMax: number | null
+}
+
+export interface FleetAnalysisData {
+  points: ScatterPoint[]
+  limits: LimitData[]
+  clients: { id: string; name: string }[]
+  assets: { id: string; code: string; name: string; clientId: string }[]
+}
+
+export async function getFleetAnalysisData(): Promise<FleetAnalysisData> {
+  const orgId = await getOrgId()
+
+  const [samples, limits, clients, assets] = await Promise.all([
+    db.oilSample.findMany({
+      where: { organizationId: orgId },
+      select: {
+        assetId: true,
+        sampleDate: true,
+        equipmentHours: true,
+        status: true,
+        ironFe: true, copperCu: true, aluminumAl: true, siliconSi: true,
+        leadPb: true, pqIndex: true, tbn: true, waterPct: true,
+        viscosity40: true, oxidation: true, fuelPct: true, soot: true, glycolPpm: true,
+        component: {
+          select: {
+            componentType: true,
+            asset: {
+              select: {
+                internalCode: true, name: true,
+                client: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { equipmentHours: 'asc' },
+    }),
+    db.oilLimit.findMany({
+      where: { organizationId: '' },
+      select: { componentType: true, variable: true, unit: true, normalMax: true, cautionMax: true, criticalMax: true, condemnedMax: true },
+    }),
+    db.client.findMany({
+      where: { organizationId: orgId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    db.asset.findMany({
+      where: { organizationId: orgId, isActive: true },
+      select: { id: true, internalCode: true, name: true, clientId: true },
+      orderBy: { internalCode: 'asc' },
+    }),
+  ])
+
+  const points: ScatterPoint[] = samples
+    .filter(s => s.equipmentHours !== null && s.equipmentHours > 0)
+    .map(s => ({
+      assetId: s.assetId,
+      assetCode: s.component.asset.internalCode ?? '—',
+      assetName: s.component.asset.name,
+      clientId: s.component.asset.client.id,
+      clientName: s.component.asset.client.name,
+      componentType: s.component.componentType,
+      sampleDate: s.sampleDate.toISOString(),
+      equipmentHours: s.equipmentHours ?? 0,
+      ironFe: s.ironFe, copperCu: s.copperCu, aluminumAl: s.aluminumAl,
+      siliconSi: s.siliconSi, leadPb: s.leadPb, pqIndex: s.pqIndex,
+      tbn: s.tbn, waterPct: s.waterPct, viscosity40: s.viscosity40,
+      oxidation: s.oxidation, fuelPct: s.fuelPct, soot: s.soot, glycolPpm: s.glycolPpm,
+      status: s.status,
+    }))
+
+  return {
+    points,
+    limits: limits as LimitData[],
+    clients: clients.map(c => ({ id: c.id, name: c.name })),
+    assets: assets.map(a => ({ id: a.id, code: a.internalCode ?? '—', name: a.name, clientId: a.clientId })),
+  }
+}
+
 // ─── Helpers ───
 
 async function getOrgId(): Promise<string> {

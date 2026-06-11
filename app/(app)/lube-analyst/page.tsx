@@ -7,6 +7,7 @@ import {
   getSystemBreakdown,
   getCriticalDiagnosesSummary,
   getAssetsWithLubeStatus,
+  getFleetAnalysisData,
 } from '@/modules/M12_lube_analyst/actions'
 import { LubeDashboard } from './_components/LubeDashboard'
 
@@ -14,13 +15,14 @@ export const metadata = { title: 'LubeAnalyst — Análisis de Aceite' }
 export const dynamic = 'force-dynamic'
 
 export default async function LubeAnalystPage() {
-  const [kpis, topRisk, clientHealth, systemBreakdown, criticalSummary, assets] = await Promise.all([
+  const [kpis, topRisk, clientHealth, systemBreakdown, criticalSummary, assets, analysisData] = await Promise.all([
     getLubeKpis(),
     getTopRiskComponents(12),
     getClientHealthComparison(),
     getSystemBreakdown(),
     getCriticalDiagnosesSummary(),
     getAssetsWithLubeStatus(),
+    getFleetAnalysisData(),
   ])
 
   return (
@@ -38,6 +40,7 @@ export default async function LubeAnalystPage() {
         systemBreakdown={systemBreakdown}
         criticalSummary={criticalSummary}
         assets={assets}
+        analysisData={analysisData}
       />
     </div>
   )

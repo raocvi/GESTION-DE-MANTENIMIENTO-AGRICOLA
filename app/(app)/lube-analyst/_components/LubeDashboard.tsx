@@ -9,12 +9,14 @@ import {
 import {
   Droplets, AlertTriangle, CheckCircle, XCircle, Zap,
   Filter, ChevronRight, TrendingUp, FlaskConical,
-  Settings, Eye,
+  Eye,
 } from 'lucide-react'
 import type {
   LubeKpis, ComponentRisk, ClientHealth,
-  SystemBreakdown, AssetLubeDetail,
+  SystemBreakdown, FleetAnalysisData,
 } from '@/modules/M12_lube_analyst/actions'
+
+import { LubeAnalysisTab } from './LubeAnalysisTab'
 
 // ─── Types ───
 interface Props {
@@ -24,6 +26,7 @@ interface Props {
   systemBreakdown: SystemBreakdown[]
   criticalSummary: { total: number; requiresStop: number; requiresOilChange: number; byVariable: { variable: string; count: number }[] }
   assets: { id: string; name: string; code: string; currentHours: number; clientId: string; clientName: string; modelName: string; categoryName: string; totalComponents: number; criticalComponents: number; cautionComponents: number; worstStatus: string }[]
+  analysisData: FleetAnalysisData
 }
 
 // ─── Helpers ───
@@ -92,8 +95,8 @@ function KpiCard({ label, value, sub, color, icon: Icon }: { label: string; valu
 }
 
 // ─── Main Dashboard ───
-export function LubeDashboard({ kpis, topRisk, clientHealth, systemBreakdown, criticalSummary, assets }: Props) {
-  const [activeTab, setActiveTab] = useState<'executive' | 'fleet' | 'clients' | 'systems'>('executive')
+export function LubeDashboard({ kpis, topRisk, clientHealth, systemBreakdown, criticalSummary, assets, analysisData }: Props) {
+  const [activeTab, setActiveTab] = useState<'executive' | 'fleet' | 'clients' | 'systems' | 'analysis'>('executive')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
 
@@ -134,6 +137,7 @@ export function LubeDashboard({ kpis, topRisk, clientHealth, systemBreakdown, cr
     { id: 'fleet', label: 'Flota' },
     { id: 'clients', label: 'Por Empresa' },
     { id: 'systems', label: 'Por Sistema' },
+    { id: 'analysis', label: '📊 Análisis Estadístico' },
   ] as const
 
   return (
@@ -379,6 +383,16 @@ export function LubeDashboard({ kpis, topRisk, clientHealth, systemBreakdown, cr
             ))}
           </div>
         </div>
+      )}
+
+      {/* ─── ANALYSIS TAB ─── */}
+      {activeTab === 'analysis' && (
+        <LubeAnalysisTab
+          points={analysisData.points}
+          limits={analysisData.limits}
+          clients={analysisData.clients}
+          assets={analysisData.assets}
+        />
       )}
 
       {/* ─── SYSTEMS TAB ─── */}
