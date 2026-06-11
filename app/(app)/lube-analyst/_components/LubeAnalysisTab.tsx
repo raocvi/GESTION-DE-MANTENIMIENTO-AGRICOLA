@@ -269,8 +269,7 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
             data={trendLine}
             dataKey="trendY"
             stroke="#f97316"
-            strokeWidth={compact ? 1.5 : 2}
-            strokeDasharray="6 4"
+            strokeWidth={compact ? 2 : 3}
             dot={false}
             activeDot={false}
             legendType="none"
@@ -332,8 +331,6 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
       if (limit.normalMax < 999) lines.push({ value: limit.normalMax, color: '#059669', label: `Normal ${limit.normalMax}`, w: lw })
       if (limit.cautionMax < 999) lines.push({ value: limit.cautionMax, color: '#ca8a04', label: `Precaución ${limit.cautionMax}`, w: lw })
       if (limit.criticalMax < 999) lines.push({ value: limit.criticalMax, color: '#dc2626', label: `Crítico ${limit.criticalMax}`, w: lw })
-      if (limit.condemnedMax != null && limit.condemnedMax < 999) lines.push({ value: limit.condemnedMax, color: '#6d28d9', label: `Condenatorio ${limit.condemnedMax}`, w: lhw })
-      if (limit.condemnedMin != null) lines.push({ value: limit.condemnedMin, color: '#6d28d9', label: `Cond. mín ${limit.condemnedMin}`, w: lhw })
       if (limit.criticalMin != null) lines.push({ value: limit.criticalMin, color: '#dc2626', label: `Crít. mín ${limit.criticalMin}`, w: lw })
       if (limit.cautionMin != null) lines.push({ value: limit.cautionMin, color: '#ca8a04', label: `Prec. mín ${limit.cautionMin}`, w: lw })
 
