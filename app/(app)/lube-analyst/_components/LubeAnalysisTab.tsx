@@ -620,7 +620,7 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
   const [selectedVariable, setSelectedVariable] = useState('ironFe')
 
   const handlePointDoubleClick = (assetId: string) => {
-    router.push(`/lube-analyst/${assetId}`)
+    router.push(`/lube-analyst/${assetId}?component=${selectedComponentType}`)
   }
 
   const varsMeta = VARS_BY_COMPONENT[selectedComponentType] ?? VARS_BY_COMPONENT.motor

@@ -6,8 +6,15 @@ import { AssetLubeView } from './_components/AssetLubeView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssetLubePage({ params }: { params: Promise<{ assetId: string }> }) {
+export default async function AssetLubePage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ assetId: string }>
+  searchParams: Promise<{ component?: string }>
+}) {
   const { assetId } = await params
+  const { component } = await searchParams
   const detail = await getAssetLubeDetail(assetId)
   if (!detail) notFound()
 
@@ -25,7 +32,7 @@ export default async function AssetLubePage({ params }: { params: Promise<{ asse
           <span className="text-[12px] text-slate-400">· {detail.clientName}</span>
         </div>
       </div>
-      <AssetLubeView detail={detail} />
+      <AssetLubeView detail={detail} expandedComponentType={component} />
     </div>
   )
 }

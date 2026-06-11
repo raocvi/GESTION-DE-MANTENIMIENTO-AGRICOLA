@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Legend,
@@ -8,7 +8,10 @@ import {
 import { AlertTriangle, CheckCircle, XCircle, Droplets, ChevronDown, ChevronUp, Wrench } from 'lucide-react'
 import type { AssetLubeDetail } from '@/modules/M12_lube_analyst/actions'
 
-interface Props { detail: AssetLubeDetail }
+interface Props {
+  detail: AssetLubeDetail
+  expandedComponentType?: string
+}
 
 const STATUS_COLOR: Record<string, string> = {
   normal: '#10b981', caution: '#f59e0b', critical: '#ef4444', condemned: '#7c3aed',
@@ -46,8 +49,16 @@ function SeverityBadge({ severity }: { severity: string }) {
   )
 }
 
-export function AssetLubeView({ detail }: Props) {
-  const [expanded, setExpanded] = useState<string | null>(detail.components[0]?.id ?? null)
+export function AssetLubeView({ detail, expandedComponentType }: Props) {
+  const initialExpandedId = useMemo(() => {
+    if (expandedComponentType) {
+      const comp = detail.components.find(c => c.componentType === expandedComponentType)
+      return comp?.id ?? (detail.components[0]?.id ?? null)
+    }
+    return detail.components[0]?.id ?? null
+  }, [detail.components, expandedComponentType])
+
+  const [expanded, setExpanded] = useState<string | null>(initialExpandedId)
   const [trendVar, setTrendVar] = useState<string>('ironFe')
 
   const TREND_VARS = ['ironFe', 'copperCu', 'siliconSi', 'pqIndex', 'tbn', 'waterPct', 'viscosity40']
