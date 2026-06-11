@@ -421,6 +421,46 @@ model MaintenancePlanTask {
 }
 
 // ============================================================
+// SCHEDULED MAINTENANCE (mantenimientos futuros programados)
+// ============================================================
+
+/// Mantenimiento programado: instancia futura generada al cruzar
+/// un MaintenancePlanTask con un Asset según su horómetro/calendario.
+/// Al ejecutarse se convierte en WorkOrder (workOrderId).
+model ScheduledMaintenance {
+  id             String    @id @default(cuid())
+  organizationId String
+  assetId        String
+  planId         String?
+  planTaskId     String?
+
+  title          String
+  system         String?
+  intervalLabel  String?   // "CADA 250 HORAS", "PRIMERAS 50 HORAS", etc.
+
+  // Programación por horómetro o calendario
+  dueHours       Float?    // horómetro objetivo
+  dueDate        DateTime? // fecha objetivo (intervalos por tiempo)
+
+  status         String    @default("pending") // pending, due_soon, overdue, in_progress, completed, skipped
+  workOrderId    String?   // OT generada al ejecutar
+
+  estimatedHours Float?
+  requiredParts  String?   @default("[]")
+  notes          String?
+
+  completedAt    DateTime?
+  completedHours Float?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId, status])
+  @@index([assetId, status])
+  @@map("scheduled_maintenance")
+}
+
+// ============================================================
 // WORK ORDERS
 // ============================================================
 
@@ -472,7 +512,14 @@ model WorkOrder {
   
   customerRating   Int?
   customerFeedback String?
-  
+
+  // --- Análisis de fallas (confiabilidad: MTBF / MTTR) ---
+  failureMode      String?   // desgaste, fatiga, contaminación, sobrecarga, falta_lubricación, eléctrica, hidráulica, operación_incorrecta, defecto_fabricación, otro
+  componentAffected String?  // sistema/componente que falló (alineado con MaintenancePlanTask.system)
+  downtimeHours    Float?    // horas de parada del equipo (para MTTR y disponibilidad)
+  partCausingFailure String? // nombre/código del repuesto que originó la falla
+  isFailure        Boolean   @default(false) // true = evento de falla real (cuenta para MTBF)
+
   isActive        Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
