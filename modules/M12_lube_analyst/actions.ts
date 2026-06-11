@@ -16,6 +16,8 @@ export interface LubeKpis {
   criticalPct: number
   criticalActions: number   // diagnoses with requiresStop
   openRecommendations: number // diagnoses with requiresInspection
+  failingSamples: number    // muestras con status critical|condemned
+  failureRate: number       // failingSamples / totalSamples * 100
 }
 
 export interface ComponentRisk {
@@ -151,15 +153,21 @@ export async function getLubeKpis(clientId?: string): Promise<LubeKpis> {
   const criticalCount = components.filter(c => c.status === 'critical').length
   const condemnedCount = components.filter(c => c.status === 'condemned').length
 
+  const totalSamples = samples.length
+  const failingSamples = samples.filter(s => s.status === 'critical' || s.status === 'condemned').length
+  const failureRate = totalSamples > 0 ? Math.round(failingSamples / totalSamples * 100 * 10) / 10 : 0
+
   return {
     totalComponents: total,
-    totalSamples: samples.length,
+    totalSamples,
     normalCount, cautionCount, criticalCount, condemnedCount,
     normalPct: total > 0 ? Math.round(normalCount / total * 100) : 0,
     cautionPct: total > 0 ? Math.round(cautionCount / total * 100) : 0,
     criticalPct: total > 0 ? Math.round((criticalCount + condemnedCount) / total * 100) : 0,
     criticalActions: diagnoses.filter(d => d.requiresStop).length,
     openRecommendations: diagnoses.filter(d => d.requiresInspection).length,
+    failingSamples,
+    failureRate,
   }
 }
 

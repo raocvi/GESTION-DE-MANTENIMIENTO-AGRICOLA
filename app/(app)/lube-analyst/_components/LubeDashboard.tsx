@@ -9,7 +9,7 @@ import {
 import {
   Droplets, AlertTriangle, CheckCircle, XCircle, Zap,
   Filter, ChevronRight, TrendingUp, FlaskConical,
-  Eye,
+  Eye, Activity,
 } from 'lucide-react'
 import type {
   LubeKpis, ComponentRisk, ClientHealth,
@@ -165,13 +165,14 @@ export function LubeDashboard({ kpis, topRisk, clientHealth, systemBreakdown, cr
       {activeTab === 'executive' && (
         <div className="space-y-5">
           {/* KPI row */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
             <KpiCard label="Componentes" value={kpis.totalComponents} sub={`${kpis.totalSamples} muestras total`} color="#0369a1" icon={Droplets} />
             <KpiCard label="Estado Normal" value={`${kpis.normalPct}%`} sub={`${kpis.normalCount} componentes`} color="#10b981" icon={CheckCircle} />
             <KpiCard label="Precaución" value={kpis.cautionCount} sub={`${kpis.cautionPct}% del total`} color="#f59e0b" icon={AlertTriangle} />
             <KpiCard label="Críticos" value={kpis.criticalCount + kpis.condemnedCount} sub={`${kpis.criticalPct}% del total`} color="#ef4444" icon={XCircle} />
             <KpiCard label="Parada Urgente" value={kpis.criticalActions} sub="componentes condenados" color="#7c3aed" icon={Zap} />
             <KpiCard label="Recomendaciones" value={kpis.openRecommendations} sub="inspecciones pendientes" color="#0369a1" icon={FlaskConical} />
+            <KpiCard label="Frec. de Falla" value={`${kpis.failureRate}%`} sub={`${kpis.failingSamples} / ${kpis.totalSamples} muestras`} color="#dc2626" icon={Activity} />
           </div>
 
           {/* Charts row */}
