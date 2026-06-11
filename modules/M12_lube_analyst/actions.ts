@@ -432,6 +432,8 @@ export interface ScatterPoint {
   ironFe: number | null
   copperCu: number | null
   aluminumAl: number | null
+  chromeCr: number | null
+  tinSn: number | null
   siliconSi: number | null
   leadPb: number | null
   pqIndex: number | null
@@ -478,8 +480,8 @@ export async function getFleetAnalysisData(): Promise<FleetAnalysisData> {
         equipmentHours: true,
         oilHours: true,
         status: true,
-        ironFe: true, copperCu: true, aluminumAl: true, siliconSi: true,
-        leadPb: true, pqIndex: true, tbn: true, waterPct: true,
+        ironFe: true, copperCu: true, aluminumAl: true, chromeCr: true, tinSn: true,
+        siliconSi: true, leadPb: true, pqIndex: true, tbn: true, waterPct: true,
         viscosity40: true, oxidation: true, fuelPct: true, soot: true, glycolPpm: true,
         component: {
           select: {
@@ -524,6 +526,7 @@ export async function getFleetAnalysisData(): Promise<FleetAnalysisData> {
       equipmentHours: s.equipmentHours ?? 0,
       oilHours: s.oilHours ?? 0,
       ironFe: s.ironFe, copperCu: s.copperCu, aluminumAl: s.aluminumAl,
+      chromeCr: s.chromeCr, tinSn: s.tinSn,
       siliconSi: s.siliconSi, leadPb: s.leadPb, pqIndex: s.pqIndex,
       tbn: s.tbn, waterPct: s.waterPct, viscosity40: s.viscosity40,
       oxidation: s.oxidation, fuelPct: s.fuelPct, soot: s.soot, glycolPpm: s.glycolPpm,

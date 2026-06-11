@@ -174,6 +174,24 @@ function buildYDomain(data: ChartPoint[], limit: LimitData | null): [number, num
   return [Math.max(0, parseFloat((lo - pad).toFixed(3))), parseFloat((hi + pad).toFixed(3))]
 }
 
+// ─── Cross-variable helpers ───
+
+interface CrossPoint {
+  x: number; y: number
+  assetId: string; assetCode: string; assetName: string; clientName: string; status: string; sampleDate: string
+}
+
+function buildCrossData(points: ScatterPoint[], xKey: string, yKey: string): CrossPoint[] {
+  return points.filter(p => {
+    const x = (p as any)[xKey]; const y = (p as any)[yKey]
+    return x != null && isFinite(x) && y != null && isFinite(y)
+  }).map(p => ({
+    x: (p as any)[xKey] as number, y: (p as any)[yKey] as number,
+    assetId: p.assetId, assetCode: p.assetCode, assetName: p.assetName,
+    clientName: p.clientName, status: p.status, sampleDate: p.sampleDate,
+  }))
+}
+
 // ─── Tooltip (custom — bypasses Recharts axis hit detection) ───
 
 interface HoveredPoint {
@@ -349,6 +367,95 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
         </div>
       )
     })()}
+    </div>
+  )
+}
+
+// ─── Cross-variable scatter chart ───
+
+interface CrossVarProps {
+  data: CrossPoint[]
+  xLabel: string; xUnit: string
+  yLabel: string; yUnit: string
+  yLimit: LimitData | null
+  height?: number
+}
+
+function CrossVarChart({ data, xLabel, xUnit, yLabel, yUnit, yLimit, height = 240 }: CrossVarProps) {
+  const [hovered, setHovered] = useState<{ point: CrossPoint; relX: number; relY: number } | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const yVals = data.map(p => p.y)
+  const xVals = data.map(p => p.x)
+  let yHi = yVals.length ? Math.max(...yVals) : 100
+  let yLo = yVals.length ? Math.min(...yVals) : 0
+  if (yLimit?.criticalMax && yLimit.criticalMax < 999) yHi = Math.max(yHi, yLimit.criticalMax)
+  const yPad = Math.max((yHi - yLo) * 0.12, yHi * 0.05, 0.5)
+  const yDomain: [number, number] = [Math.max(0, yLo - yPad), yHi + yPad]
+
+  if (data.length === 0) return <div style={{ height }} className="flex items-center justify-center text-slate-400 text-[12px]">Sin datos</div>
+
+  return (
+    <div className="relative" ref={containerRef}>
+      {hovered && (
+        <div style={{ position: 'absolute', left: hovered.relX + 10, top: hovered.relY + 10, pointerEvents: 'none', zIndex: 50 }}
+          className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-[12px] min-w-[150px]">
+          <p className="font-bold text-slate-700 mb-1">{hovered.point.assetCode} — {hovered.point.assetName}</p>
+          <p className="text-slate-400 text-[10px] mb-1.5">{hovered.point.clientName}</p>
+          <div className="flex justify-between gap-4"><span className="text-slate-500">{xLabel}</span><span className="font-bold text-slate-700">{hovered.point.x.toFixed(2)} {xUnit}</span></div>
+          <div className="flex justify-between gap-4"><span className="text-slate-500">{yLabel}</span><span className="font-bold" style={{ color: getPointColor(hovered.point.y, yLimit) }}>{hovered.point.y.toFixed(2)} {yUnit}</span></div>
+          <p className="text-[10px] text-slate-300 mt-1">{new Date(hovered.point.sampleDate).toLocaleDateString('es-CO')}</p>
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={height}>
+        <ComposedChart margin={{ top: 8, right: 16, bottom: 12, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <XAxis dataKey="x" type="number" domain={['dataMin - 2', 'dataMax + 2']}
+            tickFormatter={v => `${v.toFixed(0)}`} tick={{ fontSize: 9 }} height={30}
+            label={{ value: `${xLabel} (${xUnit})`, position: 'insideBottom', offset: -6, style: { fontSize: 9, fill: '#94a3b8' } }}
+          />
+          <YAxis type="number" domain={yDomain} allowDataOverflow tick={{ fontSize: 9 }} width={42}
+            label={{ value: yUnit, angle: -90, position: 'insideLeft', offset: 12, style: { fontSize: 9, fill: '#94a3b8' } }}
+          />
+          <Scatter data={data} dataKey="y" isAnimationActive={false}
+            shape={(props: any) => {
+              const { cx, cy, payload } = props
+              if (!isFinite(cx) || !isFinite(cy)) return <g />
+              const color = getPointColor(payload.y, yLimit)
+              return (
+                <circle cx={cx} cy={cy} r={4} fill={color} fillOpacity={0.75} stroke={color} strokeWidth={0.5}
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={(e) => { const r = containerRef.current?.getBoundingClientRect(); if (r) setHovered({ point: payload, relX: e.clientX - r.left, relY: e.clientY - r.top }) }}
+                  onMouseMove={(e) => { const r = containerRef.current?.getBoundingClientRect(); if (r) setHovered({ point: payload, relX: e.clientX - r.left, relY: e.clientY - r.top }) }}
+                  onMouseLeave={() => setHovered(null)}
+                />
+              )
+            }}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+      {/* CSS limit lines for Y axis */}
+      {yLimit && (() => {
+        const topM = 8, bottomM = 12 + 30, yAxisW = 42, rightM = 16
+        const plotH = height - topM - bottomM
+        const [lo, hi] = yDomain
+        const pct = (v: number) => `${((1 - (v - lo) / (hi - lo)) * 100).toFixed(2)}%`
+        const lineDefs = [
+          { v: yLimit.normalMax, color: '#059669', label: `${yLimit.normalMax}` },
+          { v: yLimit.cautionMax, color: '#ca8a04', label: `${yLimit.cautionMax}` },
+          { v: yLimit.criticalMax < 999 ? yLimit.criticalMax : null, color: '#dc2626', label: `${yLimit.criticalMax}` },
+        ].filter(l => l.v != null && (l.v as number) >= lo && (l.v as number) <= hi) as { v: number; color: string; label: string }[]
+        return (
+          <div style={{ position: 'absolute', top: topM, left: yAxisW, right: rightM, height: plotH, pointerEvents: 'none' }}>
+            {lineDefs.map(l => (
+              <div key={l.v} style={{ position: 'absolute', top: pct(l.v), left: 0, right: 0 }}>
+                <div style={{ borderTop: `1.5px dashed ${l.color}`, width: '100%' }} />
+                <span style={{ position: 'absolute', right: 2, top: -11, fontSize: 8, color: l.color, fontWeight: 700, background: 'rgba(255,255,255,0.85)', padding: '0 2px' }}>{l.label}</span>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -749,6 +856,46 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                   compact
                   highlightedAssetId={highlightedAssetId}
                   onPointClick={handlePointClick}
+                />
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Cross-variable analysis ── */}
+      <div className="chart-card p-5">
+        <div className="mb-4">
+          <p className="text-[14px] font-bold text-slate-700">
+            Análisis Cruzado de Variables — {COMPONENT_LABELS[selectedComponentType]}
+            <span className="text-[11px] font-normal text-slate-400 ml-2">({scopeLabel})</span>
+          </p>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            Correlación entre variables · cada punto = una muestra
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {[
+            { xKey: 'siliconSi', yKey: 'ironFe',   xLabel: 'Silicio (Si)',  xUnit: 'ppm', yLabel: 'Hierro (Fe)',  yUnit: 'ppm', yLimitKey: 'ironFe'  },
+            { xKey: 'siliconSi', yKey: 'copperCu',  xLabel: 'Silicio (Si)',  xUnit: 'ppm', yLabel: 'Cobre (Cu)',   yUnit: 'ppm', yLimitKey: 'copperCu' },
+            { xKey: 'siliconSi', yKey: 'tinSn',     xLabel: 'Silicio (Si)',  xUnit: 'ppm', yLabel: 'Estaño (Sn)',  yUnit: 'ppm', yLimitKey: 'tinSn'   },
+            { xKey: 'siliconSi', yKey: 'leadPb',    xLabel: 'Silicio (Si)',  xUnit: 'ppm', yLabel: 'Plomo (Pb)',   yUnit: 'ppm', yLimitKey: 'leadPb'  },
+            { xKey: 'siliconSi', yKey: 'chromeCr',  xLabel: 'Silicio (Si)',  xUnit: 'ppm', yLabel: 'Cromo (Cr)',   yUnit: 'ppm', yLimitKey: 'chromeCr'},
+            { xKey: 'oxidation', yKey: 'tbn',       xLabel: 'Oxidación',     xUnit: 'abs/cm', yLabel: 'TBN',       yUnit: 'mgKOH/g', yLimitKey: 'tbn'},
+          ].map(pair => {
+            const data = buildCrossData(scopedPoints, pair.xKey, pair.yKey)
+            const yLim = limits.find(l => l.componentType === selectedComponentType && l.variable === pair.yLimitKey) ?? null
+            return (
+              <div key={`${pair.xKey}-${pair.yKey}`} className="rounded-xl border border-slate-100 p-3">
+                <p className="text-[12px] font-bold text-slate-700 mb-1 px-1">
+                  {pair.yLabel} <span className="text-slate-400 font-normal text-[10px]">vs</span> {pair.xLabel}
+                  <span className="text-[10px] text-slate-400 font-normal ml-2">{data.length} pts</span>
+                </p>
+                <CrossVarChart
+                  data={data}
+                  xLabel={pair.xLabel} xUnit={pair.xUnit}
+                  yLabel={pair.yLabel} yUnit={pair.yUnit}
+                  yLimit={yLim}
                 />
               </div>
             )
