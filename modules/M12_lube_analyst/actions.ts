@@ -322,12 +322,22 @@ export async function getAssetLubeDetail(assetId: string): Promise<AssetLubeDeta
   })
   if (!asset) return null
 
+  const componentOrder: Record<string, number> = {
+    motor: 1,
+    transmission: 2,
+    differential: 3,
+    final_drive: 4,
+    hydraulic: 5,
+  }
+
   return {
     assetId: asset.id,
     assetName: asset.name,
     assetCode: asset.internalCode || '—',
     clientName: asset.client.name,
-    components: asset.lubeComponents.map(comp => {
+    components: asset.lubeComponents
+      .sort((a, b) => (componentOrder[a.componentType] ?? 99) - (componentOrder[b.componentType] ?? 99))
+      .map(comp => {
       const latestSample = comp.samples[comp.samples.length - 1] ?? null
       const latestDiagnoses = latestSample?.diagnoses ?? []
 
