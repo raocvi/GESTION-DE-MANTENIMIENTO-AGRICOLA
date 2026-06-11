@@ -197,7 +197,6 @@ function pearsonR(data: CrossPoint[]): number | null {
 
 function rLabel(r: number): { text: string; color: string } {
   const a = Math.abs(r)
-  const sign = r >= 0 ? '+' : '−'
   if (a >= 0.99) return { text: `Correlación ${r > 0 ? 'positiva' : 'negativa'} perfecta`, color: r > 0 ? '#059669' : '#dc2626' }
   if (a >= 0.70) return { text: `Correlación ${r > 0 ? 'positiva' : 'negativa'} fuerte`, color: r > 0 ? '#059669' : '#dc2626' }
   if (a >= 0.30) return { text: `Correlación ${r > 0 ? 'positiva' : 'negativa'} moderada`, color: r > 0 ? '#ca8a04' : '#f97316' }
@@ -418,6 +417,7 @@ function CrossVarChart({ data, xLabel, xUnit, yLabel, yUnit, yLimit, height = 24
 
   const r = pearsonR(data)
   const corr = r !== null ? rLabel(r) : null
+  const trendLine = useMemo(() => buildTrendLine(data), [data])
 
   if (data.length === 0) return <div style={{ height }} className="flex items-center justify-center text-slate-400 text-[12px]">Sin datos</div>
 
@@ -469,6 +469,18 @@ function CrossVarChart({ data, xLabel, xUnit, yLabel, yUnit, yLimit, height = 24
               )
             }}
           />
+          {trendLine.length === 2 && (
+            <Line
+              data={trendLine}
+              dataKey="trendY"
+              stroke="#f97316"
+              strokeWidth={3}
+              dot={false}
+              activeDot={false}
+              isAnimationActive={false}
+              legendType="none"
+            />
+          )}
         </ComposedChart>
       </ResponsiveContainer>
       {/* CSS limit lines for Y axis */}
