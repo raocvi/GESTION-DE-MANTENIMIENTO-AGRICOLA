@@ -538,6 +538,82 @@ export async function getFleetAnalysisData(): Promise<FleetAnalysisData> {
   }
 }
 
+// ─── Fault Frequency ───
+
+export interface FaultFrequencyRow {
+  variable: string
+  label: string
+  limitValue: number | null
+  unit: string
+  count: number
+  pct: number
+  cumulPct: number
+}
+
+export interface FaultFrequencyData {
+  componentType: string
+  total: number
+  rows: FaultFrequencyRow[]
+}
+
+const VAR_LABELS: Record<string, string> = {
+  ironFe: 'Hierro', copperCu: 'Cobre', aluminumAl: 'Aluminio',
+  chromeCr: 'Cromo', siliconSi: 'Silicio', sodiumNa: 'Sodio',
+  pqIndex: 'PQ Index', tbn: 'TBN', viscosity40: 'Alta Viscosidad',
+  waterPct: 'Agua', fuelPct: 'Combustible', oxidation: 'Oxidación',
+  soot: 'Hollín', glycolPpm: 'Glicol', leadPb: 'Plomo',
+}
+
+export async function getFaultFrequency(componentType = 'motor'): Promise<FaultFrequencyData> {
+  const orgId = await getOrgId()
+
+  const [diagnoses, limits] = await Promise.all([
+    db.oilDiagnosis.findMany({
+      where: {
+        severity: { in: ['caution', 'critical', 'condemned'] },
+        sample: {
+          organizationId: orgId,
+          component: { componentType },
+        },
+      },
+      select: { variable: true },
+    }),
+    db.oilLimit.findMany({
+      where: { organizationId: '', componentType },
+      select: { variable: true, cautionMax: true, unit: true },
+    }),
+  ])
+
+  const limitMap = Object.fromEntries(limits.map(l => [l.variable, { value: l.cautionMax, unit: l.unit }]))
+
+  const freq: Record<string, number> = {}
+  for (const d of diagnoses) {
+    freq[d.variable] = (freq[d.variable] ?? 0) + 1
+  }
+
+  const total = Object.values(freq).reduce((s, v) => s + v, 0)
+  if (total === 0) return { componentType, total: 0, rows: [] }
+
+  let cumul = 0
+  const rows: FaultFrequencyRow[] = Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .map(([variable, count]) => {
+      const pct = Math.round((count / total) * 100)
+      cumul += pct
+      return {
+        variable,
+        label: VAR_LABELS[variable] ?? variable,
+        limitValue: limitMap[variable]?.value ?? null,
+        unit: limitMap[variable]?.unit ?? '',
+        count,
+        pct,
+        cumulPct: Math.min(cumul, 100),
+      }
+    })
+
+  return { componentType, total, rows }
+}
+
 // ─── Helpers ───
 
 async function getOrgId(): Promise<string> {

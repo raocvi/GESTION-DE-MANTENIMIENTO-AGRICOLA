@@ -13,10 +13,11 @@ import {
 } from 'lucide-react'
 import type {
   LubeKpis, ComponentRisk, ClientHealth,
-  SystemBreakdown, FleetAnalysisData,
+  SystemBreakdown, FleetAnalysisData, FaultFrequencyData,
 } from '@/modules/M12_lube_analyst/actions'
 
 import { LubeAnalysisTab } from './LubeAnalysisTab'
+import { FaultFrequencyChart } from './FaultFrequencyChart'
 
 // ─── Types ───
 interface Props {
@@ -27,6 +28,7 @@ interface Props {
   criticalSummary: { total: number; requiresStop: number; requiresOilChange: number; byVariable: { variable: string; count: number }[] }
   assets: { id: string; name: string; code: string; currentHours: number; clientId: string; clientName: string; modelName: string; categoryName: string; totalComponents: number; criticalComponents: number; cautionComponents: number; worstStatus: string }[]
   analysisData: FleetAnalysisData
+  faultFrequency: Record<string, FaultFrequencyData>
 }
 
 // ─── Helpers ───
@@ -95,7 +97,7 @@ function KpiCard({ label, value, sub, color, icon: Icon }: { label: string; valu
 }
 
 // ─── Main Dashboard ───
-export function LubeDashboard({ kpis, topRisk, clientHealth, systemBreakdown, criticalSummary, assets, analysisData }: Props) {
+export function LubeDashboard({ kpis, topRisk, clientHealth, systemBreakdown, criticalSummary, assets, analysisData, faultFrequency }: Props) {
   const [activeTab, setActiveTab] = useState<'executive' | 'fleet' | 'clients' | 'systems' | 'analysis'>('executive')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
@@ -250,6 +252,9 @@ export function LubeDashboard({ kpis, topRisk, clientHealth, systemBreakdown, cr
               </BarChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Fault frequency Pareto */}
+          <FaultFrequencyChart data={faultFrequency} />
         </div>
       )}
 
