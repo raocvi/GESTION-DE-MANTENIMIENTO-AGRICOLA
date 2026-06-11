@@ -428,6 +428,7 @@ export interface ScatterPoint {
   componentType: string
   sampleDate: string
   equipmentHours: number
+  oilHours: number
   ironFe: number | null
   copperCu: number | null
   aluminumAl: number | null
@@ -475,6 +476,7 @@ export async function getFleetAnalysisData(): Promise<FleetAnalysisData> {
         assetId: true,
         sampleDate: true,
         equipmentHours: true,
+        oilHours: true,
         status: true,
         ironFe: true, copperCu: true, aluminumAl: true, siliconSi: true,
         leadPb: true, pqIndex: true, tbn: true, waterPct: true,
@@ -520,6 +522,7 @@ export async function getFleetAnalysisData(): Promise<FleetAnalysisData> {
       componentType: s.component.componentType,
       sampleDate: s.sampleDate.toISOString(),
       equipmentHours: s.equipmentHours ?? 0,
+      oilHours: s.oilHours ?? 0,
       ironFe: s.ironFe, copperCu: s.copperCu, aluminumAl: s.aluminumAl,
       siliconSi: s.siliconSi, leadPb: s.leadPb, pqIndex: s.pqIndex,
       tbn: s.tbn, waterPct: s.waterPct, viscosity40: s.viscosity40,

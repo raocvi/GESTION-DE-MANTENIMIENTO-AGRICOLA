@@ -18,47 +18,48 @@ interface Limit {
 
 const LIMITS: Record<string, Record<string, Limit>> = {
   motor: {
-    ironFe:      { normalMax: 75,  cautionMax: 150, criticalMax: 250, condemnedMax: 400,  unit: 'ppm',     source: 'ASTM D6595 / Bureau Veritas' },
-    copperCu:    { normalMax: 30,  cautionMax: 75,  criticalMax: 150, condemnedMax: 200,  unit: 'ppm',     source: 'ASTM D6595' },
+    ironFe:      { normalMax: 75,  cautionMax: 100, criticalMax: 150, condemnedMax: 250,  unit: 'ppm',     source: 'ASTM D6595 / Bureau Veritas' },
+    copperCu:    { normalMax: 15,  cautionMax: 30,  criticalMax: 60,  condemnedMax: 100,  unit: 'ppm',     source: 'ASTM D6595' },
     aluminumAl:  { normalMax: 15,  cautionMax: 30,  criticalMax: 60,  condemnedMax: 100,  unit: 'ppm',     source: 'Industry' },
-    chromeCr:    { normalMax: 5,   cautionMax: 15,  criticalMax: 30,  condemnedMax: 50,   unit: 'ppm',     source: 'ASTM D6595' },
+    chromeCr:    { normalMax: 5,   cautionMax: 10,  criticalMax: 20,  condemnedMax: 40,   unit: 'ppm',     source: 'ASTM D6595' },
     siliconSi:   { normalMax: 20,  cautionMax: 40,  criticalMax: 80,  condemnedMax: 150,  unit: 'ppm',     source: 'Polaris Labs' },
     sodiumNa:    { normalMax: 20,  cautionMax: 50,  criticalMax: 100, condemnedMax: 200,  unit: 'ppm',     source: 'Coolant indicator' },
     pqIndex:     { normalMax: 50,  cautionMax: 100, criticalMax: 200,                     unit: 'PQI',     source: 'PMI' },
-    // TBN: INVERTED — too low = bad. normalMin=8, condemnedMin=2
-    tbn:         { normalMax: 999, cautionMax: 999, criticalMax: 999, // upper never triggers
+    tbn:         { normalMax: 999, cautionMax: 999, criticalMax: 999,
                    normalMin: 8,   cautionMin: 5,   criticalMin: 3.5, condemnedMin: 2,
                    unit: 'mgKOH/g', source: 'SAE J313' },
-    // Viscosity 40°C for 15W-40: valid range 95-115. Outside = problem
-    viscosity40: { normalMax: 115, cautionMax: 130, criticalMax: 148, condemnedMax: 170,
-                   normalMin: 95,  cautionMin: 82,  criticalMin: 70,  condemnedMin: 55,
-                   unit: 'cSt',   source: 'SAE J300 / ISO 3104' },
+    // Viscosity at 100°C for 15W-40: normal range 14.3–16.3 cSt (Shell/ASTM data)
+    viscosity40: { normalMax: 16.3, cautionMax: 18.5, criticalMax: 20.5, condemnedMax: 22.0,
+                   normalMin: 14.3, cautionMin: 13.0, criticalMin: 12.5, condemnedMin: 12.0,
+                   unit: 'cSt',   source: 'SAE J300 / Shell Rimula R4X 100°C' },
     waterPct:    { normalMax: 0.1, cautionMax: 0.3, criticalMax: 0.5, condemnedMax: 1.0, unit: '%',       source: 'ASTM D6595' },
-    fuelPct:     { normalMax: 0.5, cautionMax: 2.0, criticalMax: 4.0, condemnedMax: 6.0, unit: '%',       source: 'ASTM D3524' },
-    oxidation:   { normalMax: 15,  cautionMax: 30,  criticalMax: 50,                     unit: 'abs/cm',  source: 'FTIR E2412' },
-    soot:        { normalMax: 1.0, cautionMax: 2.5, criticalMax: 4.0, condemnedMax: 6.0, unit: '%',       source: 'FTIR E2412' },
+    fuelPct:     { normalMax: 1.5, cautionMax: 3.0, criticalMax: 5.0, condemnedMax: 7.0, unit: '%',       source: 'ASTM D3524' },
+    oxidation:   { normalMax: 0.2, cautionMax: 0.35,criticalMax: 0.50,                   unit: 'abs/cm',  source: 'FTIR E2412' },
+    soot:        { normalMax: 2.5, cautionMax: 4.5, criticalMax: 6.5, condemnedMax: 9.0, unit: '%',       source: 'FTIR E2412' },
   },
   transmission: {
     ironFe:      { normalMax: 50,  cautionMax: 120, criticalMax: 200, condemnedMax: 350,  unit: 'ppm',     source: 'Case IH / ASTM D6595' },
-    copperCu:    { normalMax: 50,  cautionMax: 100, criticalMax: 200, condemnedMax: 300,  unit: 'ppm',     source: 'ASTM D6595' },
+    copperCu:    { normalMax: 30,  cautionMax: 60,  criticalMax: 120, condemnedMax: 200,  unit: 'ppm',     source: 'ASTM D6595' },
     aluminumAl:  { normalMax: 20,  cautionMax: 50,  criticalMax: 100,                     unit: 'ppm',     source: 'Industry' },
     siliconSi:   { normalMax: 15,  cautionMax: 30,  criticalMax: 60,                      unit: 'ppm',     source: 'Contamination' },
     pqIndex:     { normalMax: 75,  cautionMax: 150, criticalMax: 300,                     unit: 'PQI',     source: 'PMI' },
-    viscosity40: { normalMax: 95,  cautionMax: 110, criticalMax: 130,
-                   normalMin: 72,  cautionMin: 62,  criticalMin: 50,
-                   unit: 'cSt',   source: 'SAE 10W-30 Hy-Tran' },
+    // 10W-30 Hy-Tran at 100°C: normal ~10.5-11.5 cSt
+    viscosity40: { normalMax: 11.5, cautionMax: 13.0, criticalMax: 15.0,
+                   normalMin: 10.5, cautionMin: 9.5,  criticalMin: 8.5,
+                   unit: 'cSt',   source: 'Case IH Hy-Tran Ultra 100°C' },
     waterPct:    { normalMax: 0.1, cautionMax: 0.3, criticalMax: 0.5,                     unit: '%',       source: 'ASTM D6595' },
   },
   hydraulic: {
     ironFe:      { normalMax: 25,  cautionMax: 60,  criticalMax: 120, condemnedMax: 200,  unit: 'ppm',     source: 'Parker Hannifin' },
-    copperCu:    { normalMax: 15,  cautionMax: 40,  criticalMax: 80,                      unit: 'ppm',     source: 'Parker / Bosch' },
+    copperCu:    { normalMax: 10,  cautionMax: 25,  criticalMax: 50,                      unit: 'ppm',     source: 'Parker / Bosch' },
     siliconSi:   { normalMax: 10,  cautionMax: 20,  criticalMax: 50,                      unit: 'ppm',     source: 'ISO 4406' },
     pqIndex:     { normalMax: 30,  cautionMax: 75,  criticalMax: 150,                     unit: 'PQI',     source: 'PMI' },
-    viscosity40: { normalMax: 70,  cautionMax: 80,  criticalMax: 95,
-                   normalMin: 60,  cautionMin: 50,  criticalMin: 38,
-                   unit: 'cSt',   source: 'ISO VG 46/68' },
+    // ISO VG 46 at 100°C: normal ~6.8-7.5 cSt
+    viscosity40: { normalMax: 7.5,  cautionMax: 8.5,  criticalMax: 10.0,
+                   normalMin: 6.8,  cautionMin: 6.0,  criticalMin: 5.0,
+                   unit: 'cSt',   source: 'ISO VG 46 100°C' },
     waterPct:    { normalMax: 0.05,cautionMax: 0.1, criticalMax: 0.3,                     unit: '%',       source: 'Hydraulic std' },
-    oxidation:   { normalMax: 10,  cautionMax: 20,  criticalMax: 35,                      unit: 'abs/cm',  source: 'FTIR E2412' },
+    oxidation:   { normalMax: 0.15,cautionMax: 0.30,criticalMax: 0.50,                    unit: 'abs/cm',  source: 'FTIR E2412' },
   },
   differential: {
     ironFe:      { normalMax: 100, cautionMax: 250, criticalMax: 500, condemnedMax: 800,  unit: 'ppm',     source: 'ASTM D6595' },
@@ -240,79 +241,97 @@ function generateLabValues(
   oilHours: number,
   healthFactor: number  // 0.2 (very clean) → 3.5 (very degraded)
 ): SampleValues {
-  const age = Math.min(oilHours / 250, 2.5)         // 0–2.5 age multiplier
-  const deg = age * healthFactor                      // combined degradation
+  // Oil age factor 0→2.5 (normalized at 250h change interval)
+  const age = Math.min(oilHours / 250, 2.5)
+  const deg = age * healthFactor
 
-  // Base values scale with both age AND health factor for wide spread
+  // All values calibrated to real Shell LubeAnalyst fleet data
   const V = {
     motor: (): SampleValues => ({
-      ironFe:      rand(6,  15) + deg * rand(18, 28) * noise(0.25),
-      copperCu:    rand(3,  10) + deg * rand(6,  12) * noise(0.20),
-      aluminumAl:  rand(2,  8)  + deg * rand(3,  7)  * noise(0.20),
-      chromeCr:    rand(0.5,3)  + deg * rand(0.5,2)  * noise(0.15),
-      siliconSi:   rand(4,  12) + deg * rand(4,  8)  * noise(0.30),
-      sodiumNa:    rand(2,  10) + deg * rand(1,  4)  * noise(0.20),
-      pqIndex:     rand(5,  18) + deg * rand(8,  18) * noise(0.25),
-      // TBN starts high and DECREASES with degradation
-      tbn:         Math.max(1.5, rand(10, 13) - deg * rand(1.2, 2.2) * noise(0.20)),
-      // Viscosity: normal center 102–108, spreads with health factor
-      viscosity40: 105 + (healthFactor - 1) * rand(8, 14) * noise(0.15) + deg * rand(1, 3),
-      waterPct:    rand(0.01, 0.05) + deg * rand(0.01, 0.04) * noise(0.30),
-      fuelPct:     rand(0.05, 0.3)  + deg * rand(0.05, 0.15) * noise(0.30),
-      oxidation:   rand(2,   6)     + deg * rand(2,   5)     * noise(0.20),
-      soot:        rand(0.1, 0.5)   + deg * rand(0.1, 0.4)   * noise(0.25),
+      // Fe: real data 5-73 ppm, avg ~30. deg drives spread.
+      ironFe:      Math.max(2, rand(5,  18)  + deg * rand(5, 14)  * noise(0.30)),
+      copperCu:    Math.max(0, rand(0,  5)   + deg * rand(0, 4)   * noise(0.25)),
+      aluminumAl:  Math.max(0, rand(1,  5)   + deg * rand(1, 4)   * noise(0.20)),
+      chromeCr:    Math.max(0, rand(0,  3)   + deg * rand(0, 2)   * noise(0.20)),
+      siliconSi:   Math.max(0, rand(1,  8)   + deg * rand(1, 5)   * noise(0.30)),
+      sodiumNa:    Math.max(0, rand(1,  6)   + deg * rand(0, 3)   * noise(0.25)),
+      pqIndex:     Math.max(1, rand(3,  15)  + deg * rand(4, 12)  * noise(0.25)),
+      // TBN 100°C: real data doesn't show TBN (always '-'), seed ~8-12 decreasing
+      tbn:         Math.max(1.5, rand(9, 12) - deg * rand(0.8, 1.8) * noise(0.20)),
+      // Viscosity AT 100°C: 15W-40 normal 14.3-16.3. healthFactor spreads it.
+      // healthFactor<1 → low end (fresh clean oil), >2 → oxidation/soot raises it
+      viscosity40: parseFloat((14.3 + (healthFactor - 0.7) * rand(0.5, 1.2) * noise(0.12)
+                    + deg * rand(0.1, 0.4) * noise(0.15)).toFixed(2)),
+      waterPct:    Math.max(0, rand(0.00, 0.04) + deg * rand(0.00, 0.03) * noise(0.30)),
+      fuelPct:     Math.max(0, rand(0.00, 0.80) + deg * rand(0.00, 0.60) * noise(0.30)),
+      // Oxidation FTIR: real range 0.03-0.37
+      oxidation:   parseFloat(Math.max(0.01, rand(0.03, 0.10) + deg * rand(0.01, 0.08) * noise(0.25)).toFixed(3)),
+      // Soot %: real range 0-8.5
+      soot:        parseFloat(Math.max(0, rand(0.0, 1.5) + deg * rand(0.0, 2.0) * noise(0.30)).toFixed(2)),
     }),
     transmission: (): SampleValues => ({
-      ironFe:      rand(8,  20) + deg * rand(10, 20) * noise(0.25),
-      copperCu:    rand(8,  22) + deg * rand(8,  18) * noise(0.20),
-      aluminumAl:  rand(3,  10) + deg * rand(4,  10) * noise(0.20),
-      siliconSi:   rand(2,  8)  + deg * rand(2,  6)  * noise(0.25),
-      pqIndex:     rand(10, 30) + deg * rand(10, 25) * noise(0.25),
-      viscosity40: 82 + (healthFactor - 1) * rand(6, 10) * noise(0.15) + deg * rand(0.5, 2),
-      waterPct:    rand(0.01, 0.04) + deg * rand(0.01, 0.03) * noise(0.30),
+      ironFe:      Math.max(2, rand(5,  20)  + deg * rand(4, 12)  * noise(0.28)),
+      copperCu:    Math.max(0, rand(2,  12)  + deg * rand(2, 8)   * noise(0.25)),
+      aluminumAl:  Math.max(0, rand(1,  6)   + deg * rand(1, 5)   * noise(0.22)),
+      siliconSi:   Math.max(0, rand(1,  5)   + deg * rand(1, 4)   * noise(0.28)),
+      pqIndex:     Math.max(2, rand(5,  22)  + deg * rand(4, 14)  * noise(0.25)),
+      // 10W-30 at 100°C: ~10.5-11.5 normal
+      viscosity40: parseFloat((10.5 + (healthFactor - 0.7) * rand(0.3, 0.8) * noise(0.12)
+                    + deg * rand(0.1, 0.3)).toFixed(2)),
+      waterPct:    Math.max(0, rand(0.00, 0.03) + deg * rand(0.00, 0.02) * noise(0.30)),
     }),
     hydraulic: (): SampleValues => ({
-      ironFe:      rand(3,  10) + deg * rand(5,  12) * noise(0.25),
-      copperCu:    rand(2,  7)  + deg * rand(3,  7)  * noise(0.20),
-      siliconSi:   rand(1,  5)  + deg * rand(2,  5)  * noise(0.30),
-      pqIndex:     rand(4,  14) + deg * rand(4,  12) * noise(0.25),
-      viscosity40: 64 + (healthFactor - 1) * rand(4, 8) * noise(0.15) + deg * rand(0.5, 1.5),
-      waterPct:    rand(0.005,0.02) + deg * rand(0.005,0.015) * noise(0.30),
-      oxidation:   rand(1,   5)     + deg * rand(2,   5)      * noise(0.20),
+      ironFe:      Math.max(1, rand(2,  8)   + deg * rand(2, 7)   * noise(0.28)),
+      copperCu:    Math.max(0, rand(0,  4)   + deg * rand(0, 3)   * noise(0.25)),
+      siliconSi:   Math.max(0, rand(1,  5)   + deg * rand(1, 4)   * noise(0.30)),
+      pqIndex:     Math.max(1, rand(2,  10)  + deg * rand(2, 8)   * noise(0.25)),
+      // ISO VG 46 at 100°C: ~6.8-7.5 normal
+      viscosity40: parseFloat((6.8 + (healthFactor - 0.7) * rand(0.2, 0.5) * noise(0.12)
+                    + deg * rand(0.05, 0.2)).toFixed(2)),
+      waterPct:    Math.max(0, rand(0.000, 0.020) + deg * rand(0.000, 0.015) * noise(0.30)),
+      oxidation:   parseFloat(Math.max(0.01, rand(0.02, 0.08) + deg * rand(0.01, 0.06) * noise(0.25)).toFixed(3)),
     }),
     differential: (): SampleValues => ({
-      ironFe:      rand(20, 50) + deg * rand(15, 35) * noise(0.30),
-      copperCu:    rand(8,  20) + deg * rand(6,  16) * noise(0.25),
-      pqIndex:     rand(20, 55) + deg * rand(15, 35) * noise(0.25),
-      siliconSi:   rand(3,  10) + deg * rand(2,  6)  * noise(0.25),
-      waterPct:    rand(0.01,0.04) + deg * rand(0.01,0.03) * noise(0.25),
+      ironFe:      Math.max(5, rand(15, 45)  + deg * rand(8, 22)  * noise(0.30)),
+      copperCu:    Math.max(0, rand(4,  14)  + deg * rand(3, 10)  * noise(0.25)),
+      pqIndex:     Math.max(5, rand(15, 45)  + deg * rand(8, 20)  * noise(0.25)),
+      siliconSi:   Math.max(0, rand(2,  8)   + deg * rand(1, 5)   * noise(0.28)),
+      waterPct:    Math.max(0, rand(0.00, 0.04) + deg * rand(0.00, 0.02) * noise(0.28)),
     }),
     final_drive: (): SampleValues => ({
-      ironFe:      rand(30, 70) + deg * rand(20, 50) * noise(0.30),
-      copperCu:    rand(10, 28) + deg * rand(8,  20) * noise(0.25),
-      pqIndex:     rand(30, 70) + deg * rand(20, 45) * noise(0.25),
-      leadPb:      rand(1,  5)  + deg * rand(1,  3)  * noise(0.20),
-      siliconSi:   rand(4,  12) + deg * rand(3,  8)  * noise(0.25),
-      waterPct:    rand(0.01,0.04) + deg * rand(0.01,0.03) * noise(0.25),
+      ironFe:      Math.max(10, rand(25, 65) + deg * rand(10, 30) * noise(0.30)),
+      copperCu:    Math.max(2,  rand(8,  22) + deg * rand(4,  14) * noise(0.25)),
+      pqIndex:     Math.max(10, rand(25, 60) + deg * rand(10, 28) * noise(0.25)),
+      leadPb:      Math.max(0,  rand(0,  4)  + deg * rand(0,  2)  * noise(0.20)),
+      siliconSi:   Math.max(0,  rand(2,  8)  + deg * rand(1,  5)  * noise(0.28)),
+      waterPct:    Math.max(0,  rand(0.00, 0.04) + deg * rand(0.00, 0.02) * noise(0.28)),
     }),
   }
 
   const vals = (V[componentType as keyof typeof V] ?? V.motor)()
 
-  // Scenario overrides — applied on top of base values
+  // Scenario overrides
   switch (scenario) {
     case 'caution':
-      if (vals.ironFe)     vals.ironFe     = rand(80,  135) * noise(0.10)
+      if (vals.ironFe)     vals.ironFe     = rand(76,  110) * noise(0.10)
       if (vals.siliconSi)  vals.siliconSi  = rand(22,  42)  * noise(0.10)
       if (vals.pqIndex)    vals.pqIndex    = rand(55,  95)  * noise(0.10)
-      if (componentType === 'motor' && vals.tbn) vals.tbn = rand(5, 7.5) * noise(0.08)
+      if (componentType === 'motor') {
+        if (vals.tbn) vals.tbn = rand(5, 7.8) * noise(0.08)
+        if (vals.soot) vals.soot = rand(2.6, 4.4) * noise(0.10)
+        if (vals.viscosity40) vals.viscosity40 = parseFloat((rand(16.5, 18.4) * noise(0.05)).toFixed(2))
+      }
       break
     case 'critical':
-      if (vals.ironFe)     vals.ironFe     = rand(155, 290) * noise(0.12)
+      if (vals.ironFe)     vals.ironFe     = rand(102, 200) * noise(0.12)
       if (vals.pqIndex)    vals.pqIndex    = rand(110, 210) * noise(0.12)
-      if (vals.siliconSi)  vals.siliconSi  = rand(45,  85)  * noise(0.10)
-      if (componentType === 'motor' && vals.tbn) vals.tbn = rand(2, 4) * noise(0.08)
-      if (vals.oxidation)  vals.oxidation  = rand(35,  55)  * noise(0.10)
+      if (vals.siliconSi)  vals.siliconSi  = rand(45,  90)  * noise(0.10)
+      if (componentType === 'motor') {
+        if (vals.tbn) vals.tbn = rand(2.0, 3.8) * noise(0.08)
+        if (vals.soot) vals.soot = rand(4.6, 8.5) * noise(0.12)
+        if (vals.oxidation) vals.oxidation = parseFloat((rand(0.30, 0.50) * noise(0.08)).toFixed(3))
+        if (vals.viscosity40) vals.viscosity40 = parseFloat((rand(18.6, 21.0) * noise(0.05)).toFixed(2))
+      }
       break
     case 'coolant_contamination':
       vals.waterPct  = rand(0.4,  0.95) * noise(0.10)
@@ -321,18 +340,21 @@ function generateLabValues(
       vals.potassiumK= rand(25,   85)   * noise(0.10)
       break
     case 'fuel_dilution':
-      vals.fuelPct   = rand(2.4,  5.8)  * noise(0.10)
-      if (vals.viscosity40) vals.viscosity40 = rand(62, 84) * noise(0.08)
+      vals.fuelPct = rand(3.0, 6.5) * noise(0.10)
+      // Fuel dilution drops viscosity below condemned min
+      if (vals.viscosity40 && componentType === 'motor')
+        vals.viscosity40 = parseFloat((rand(12.0, 13.2) * noise(0.06)).toFixed(2))
       break
     case 'dust_contamination':
-      if (vals.siliconSi)  vals.siliconSi  = rand(48, 125) * noise(0.12)
+      if (vals.siliconSi)  vals.siliconSi  = rand(48, 120) * noise(0.12)
       if (vals.aluminumAl) vals.aluminumAl = rand(18, 65)  * noise(0.10)
-      if (vals.ironFe)     vals.ironFe     = rand(75, 190) * noise(0.12)
+      if (vals.ironFe)     vals.ironFe     = rand(80, 180) * noise(0.12)
       break
     case 'severe_wear':
-      if (vals.ironFe)  vals.ironFe  = rand(280, 620) * noise(0.15)
-      if (vals.pqIndex) vals.pqIndex = rand(230, 520) * noise(0.15)
-      if (vals.copperCu)vals.copperCu= rand(140, 360) * noise(0.12)
+      if (vals.ironFe)  vals.ironFe  = rand(155, 350) * noise(0.15)
+      if (vals.pqIndex) vals.pqIndex = rand(120, 320) * noise(0.15)
+      if (vals.copperCu)vals.copperCu= rand(35,  90)  * noise(0.12)
+      if (componentType === 'motor' && vals.soot) vals.soot = rand(5.0, 9.0) * noise(0.12)
       break
   }
 
@@ -439,8 +461,14 @@ async function main() {
           sampleScenario = assetScenario
         }
 
-        // oilHours increases progressively (older samples = fresher oil)
-        const oilHours = rand(30 + s * 40, 80 + s * 55, 0)
+        // oilHours: vida del aceite — spread 50→650h across 5 samples
+        // Mirrors real data: cluster ~100-300h with some overdue at 400-650h
+        const baseOil = cfg.changeIntervalHours
+        const oilHours = Math.round(rand(
+          50 + s * (baseOil * 0.08),
+          baseOil * 0.4 + s * (baseOil * 0.15),
+          0
+        ))
         const equipmentHours = baseHours - (sampleCount - 1 - s) * rand(180, 350, 0)
         const sampleDate = new Date(Date.now() - (sampleCount - s) * rand(50, 95, 0) * 86400000)
 

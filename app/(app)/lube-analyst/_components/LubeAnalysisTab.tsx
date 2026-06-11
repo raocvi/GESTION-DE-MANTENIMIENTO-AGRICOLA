@@ -18,7 +18,7 @@ export const VARS_BY_COMPONENT: Record<string, { key: string; label: string; uni
     { key: 'siliconSi',  label: 'Silicio (Si)',        unit: 'ppm'      },
     { key: 'pqIndex',    label: 'PQ Index',            unit: 'PQI'      },
     { key: 'tbn',        label: 'TBN',                 unit: 'mgKOH/g'  },
-    { key: 'viscosity40',label: 'Viscosidad 40°C',     unit: 'cSt'      },
+    { key: 'viscosity40',label: 'Viscosidad 100°C',     unit: 'cSt'      },
     { key: 'waterPct',   label: 'Agua',                unit: '%'        },
     { key: 'oxidation',  label: 'Oxidación',           unit: 'abs/cm'   },
     { key: 'fuelPct',    label: 'Dilución Combustible',unit: '%'        },
@@ -30,7 +30,7 @@ export const VARS_BY_COMPONENT: Record<string, { key: string; label: string; uni
     { key: 'aluminumAl', label: 'Aluminio (Al)',        unit: 'ppm'  },
     { key: 'siliconSi',  label: 'Silicio (Si)',          unit: 'ppm'  },
     { key: 'pqIndex',    label: 'PQ Index',              unit: 'PQI'  },
-    { key: 'viscosity40',label: 'Viscosidad 40°C',       unit: 'cSt'  },
+    { key: 'viscosity40',label: 'Viscosidad 100°C',       unit: 'cSt'  },
     { key: 'waterPct',   label: 'Agua',                  unit: '%'    },
   ],
   hydraulic: [
@@ -38,7 +38,7 @@ export const VARS_BY_COMPONENT: Record<string, { key: string; label: string; uni
     { key: 'copperCu',   label: 'Cobre (Cu)',           unit: 'ppm'      },
     { key: 'siliconSi',  label: 'Silicio (Si)',          unit: 'ppm'      },
     { key: 'pqIndex',    label: 'PQ Index',              unit: 'PQI'      },
-    { key: 'viscosity40',label: 'Viscosidad 40°C',       unit: 'cSt'      },
+    { key: 'viscosity40',label: 'Viscosidad 100°C',       unit: 'cSt'      },
     { key: 'waterPct',   label: 'Agua',                  unit: '%'        },
     { key: 'oxidation',  label: 'Oxidación',             unit: 'abs/cm'   },
   ],
@@ -105,9 +105,15 @@ function ScatterTooltip({ active, payload }: any) {
       <p className="font-bold text-slate-700 mb-1">{d.assetCode} — {d.assetName}</p>
       <p className="text-slate-400 text-[10px] mb-2">{d.clientName}</p>
       <div className="flex justify-between gap-4">
-        <span className="text-slate-500">Horómetro</span>
+        <span className="text-slate-500">Vida aceite</span>
         <span className="font-bold text-slate-700">{Math.round(d.x)}h</span>
       </div>
+      {d.equipmentHours > 0 && (
+        <div className="flex justify-between gap-4">
+          <span className="text-slate-500">Horómetro</span>
+          <span className="font-bold text-slate-700">{Math.round(d.equipmentHours)}h</span>
+        </div>
+      )}
       <div className="flex justify-between gap-4">
         <span className="text-slate-500">Valor</span>
         <span className="font-bold" style={{ color: STATUS_COLOR[d.status] }}>{d.y?.toFixed(2)}</span>
@@ -161,17 +167,20 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
 
   // Build scatter chart data
   const scatterData = useMemo(() =>
-    filteredPoints.map(p => ({
-      x: p.equipmentHours,
-      y: (p as any)[selectedVariable] as number,
-      assetId: p.assetId,
-      assetCode: p.assetCode,
-      assetName: p.assetName,
-      clientId: p.clientId,
-      clientName: p.clientName,
-      status: p.status,
-      sampleDate: p.sampleDate,
-    })),
+    filteredPoints
+      .filter(p => p.oilHours > 0)
+      .map(p => ({
+        x: p.oilHours,
+        y: (p as any)[selectedVariable] as number,
+        assetId: p.assetId,
+        assetCode: p.assetCode,
+        assetName: p.assetName,
+        clientId: p.clientId,
+        clientName: p.clientName,
+        status: p.status,
+        sampleDate: p.sampleDate,
+        equipmentHours: p.equipmentHours,
+      })),
     [filteredPoints, selectedVariable]
   )
 
@@ -358,7 +367,7 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                   domain={['auto', 'auto']}
                   tickFormatter={v => `${Math.round(v)}h`}
                   tick={{ fontSize: 10 }}
-                  label={{ value: 'Horómetro (h)', position: 'insideBottom', offset: -5, style: { fontSize: 10, fill: '#94a3b8' } }}
+                  label={{ value: 'Vida del Aceite (h)', position: 'insideBottom', offset: -5, style: { fontSize: 10, fill: '#94a3b8' } }}
                   height={40}
                 />
                 <YAxis
@@ -618,7 +627,7 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                   <p className="num text-[18px] font-extrabold" style={{ color: STATUS_COLOR[p.status] }}>
                     {p.y.toFixed(1)}
                   </p>
-                  <p className="text-[10px] text-slate-400">{currentVarMeta?.unit} · {Math.round(p.x)}h</p>
+                  <p className="text-[10px] text-slate-400">{currentVarMeta?.unit} · aceite {Math.round(p.x)}h</p>
                   <span
                     className="text-[9px] font-bold capitalize px-1.5 py-0.5 rounded-full"
                     style={{ background: STATUS_COLOR[p.status] + '20', color: STATUS_COLOR[p.status] }}
