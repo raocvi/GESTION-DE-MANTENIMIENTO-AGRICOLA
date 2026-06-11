@@ -163,9 +163,9 @@ function buildYDomain(data: ChartPoint[], limit: LimitData | null): [number, num
   let lo = Math.min(...vals)
   let hi = Math.max(...vals)
   if (limit) {
-    if (limit.condemnedMax != null && limit.condemnedMax < 999) hi = Math.max(hi, limit.condemnedMax)
+    if (limit.condemnedMax != null && limit.condemnedMax < 999) hi = Math.max(hi, limit.condemnedMax * 1.20)
     else if (limit.criticalMax < 999) hi = Math.max(hi, limit.criticalMax)
-    if (limit.condemnedMin != null) lo = Math.min(lo, limit.condemnedMin)
+    if (limit.condemnedMin != null) lo = Math.min(lo, limit.condemnedMin * 0.80)
     else if (limit.criticalMin != null) lo = Math.min(lo, limit.criticalMin)
   }
   const pad = Math.max((hi - lo) * 0.12, hi * 0.05, 0.5)
