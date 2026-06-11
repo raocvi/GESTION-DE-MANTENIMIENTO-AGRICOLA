@@ -268,52 +268,52 @@ function VariableScatterChart({ data, limit, unit, height, compact = false, high
             {/* Upper-bound variables */}
             {limit.normalMax < 999 && (
               <ReferenceLine y={limit.normalMax}
-                stroke="#10b981" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
+                stroke="#059669" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Normal ${limit.normalMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#10b981', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Normal ${limit.normalMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#059669', fontWeight: 700 } }}
               />
             )}
             {limit.cautionMax < 999 && (
               <ReferenceLine y={limit.cautionMax}
-                stroke="#eab308" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
+                stroke="#ca8a04" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Precaución ${limit.cautionMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#eab308', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Precaución ${limit.cautionMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#ca8a04', fontWeight: 700 } }}
               />
             )}
             {limit.criticalMax < 999 && (
               <ReferenceLine y={limit.criticalMax}
-                stroke="#ef4444" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
+                stroke="#dc2626" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Crítico ${limit.criticalMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Crítico ${limit.criticalMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#dc2626', fontWeight: 700 } }}
               />
             )}
             {limit.condemnedMax != null && limit.condemnedMax < 999 && (
               <ReferenceLine y={limit.condemnedMax}
-                stroke="#7c3aed" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
+                stroke="#6d28d9" strokeDasharray="8 4" strokeWidth={compact ? 2 : 3}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Condenatorio ${limit.condemnedMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#7c3aed', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Condenatorio ${limit.condemnedMax}`, position: 'insideTopLeft', style: { fontSize: labelFs, fill: '#6d28d9', fontWeight: 700 } }}
               />
             )}
             {/* Lower-bound variables (viscosity, TBN) */}
             {limit.condemnedMin != null && (
               <ReferenceLine y={limit.condemnedMin}
-                stroke="#7c3aed" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
+                stroke="#6d28d9" strokeDasharray="8 4" strokeWidth={compact ? 2 : 3}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Cond. mín ${limit.condemnedMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#7c3aed', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Cond. mín ${limit.condemnedMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#6d28d9', fontWeight: 700 } }}
               />
             )}
             {limit.criticalMin != null && (
               <ReferenceLine y={limit.criticalMin}
-                stroke="#ef4444" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
+                stroke="#dc2626" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Crit. mín ${limit.criticalMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#ef4444', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Crit. mín ${limit.criticalMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#dc2626', fontWeight: 700 } }}
               />
             )}
             {limit.cautionMin != null && (
               <ReferenceLine y={limit.cautionMin}
-                stroke="#eab308" strokeDasharray="8 4" strokeWidth={compact ? 1 : 1.8}
+                stroke="#ca8a04" strokeDasharray="8 4" strokeWidth={compact ? 1.5 : 2.5}
                 ifOverflow="extendDomain"
-                label={compact ? undefined : { value: `Prec. mín ${limit.cautionMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#eab308', fontWeight: 700 } }}
+                label={compact ? undefined : { value: `Prec. mín ${limit.cautionMin}`, position: 'insideBottomLeft', style: { fontSize: labelFs, fill: '#ca8a04', fontWeight: 700 } }}
               />
             )}
           </>
