@@ -8,17 +8,19 @@ export const metadata: Metadata = {
 }
 
 export default async function DashboardPage() {
-  // 1. Obtener todas las órdenes con las relaciones necesarias para filtrar en el cliente
-  const ordersQuery: any[] = await db.workOrder.findMany({
-    include: { 
-      assignedTo: { select: { id: true, name: true } }, 
-      asset: { select: { id: true, name: true, internalCode: true } },
-      client: { select: { id: true, name: true } }
-    },
-    orderBy: { createdAt: 'desc' }
-  })
+  const [ordersQuery, totalAssetsCount, clients] = await Promise.all([
+    db.workOrder.findMany({
+      include: {
+        assignedTo: { select: { id: true, name: true } },
+        asset: { select: { id: true, name: true, internalCode: true } },
+        client: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    db.asset.count(),
+    db.client.findMany({ select: { id: true, name: true } }),
+  ])
 
-  // 2. Serializar las fechas a strings para pasarlas al Client Component sin problemas
   const serializedOrders: any[] = ordersQuery.map(o => ({
     id: o.id,
     number: o.number,
@@ -38,10 +40,6 @@ export default async function DashboardPage() {
     client: o.client,
     assignedTo: o.assignedTo,
   }))
-
-  // Fetch all assets count and clients
-  const totalAssetsCount = await db.asset.count()
-  const clients = await db.client.findMany({ select: { id: true, name: true } })
 
   return (
     <div className="flex flex-col gap-4">
