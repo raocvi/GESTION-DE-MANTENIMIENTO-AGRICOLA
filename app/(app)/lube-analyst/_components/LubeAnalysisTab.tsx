@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ComposedChart, Scatter, Line, XAxis, YAxis, CartesianGrid,
   ReferenceLine, ResponsiveContainer,
@@ -349,12 +350,11 @@ interface VariableScatterProps {
   unit: string
   height: number
   compact?: boolean
-  highlightedAssetId?: string | null
   yVarKey: string
-  onPointClick?: (assetId: string) => void
+  onPointDoubleClick?: (assetId: string) => void
 }
 
-function VariableScatterChart({ data, limit, allLimits, unit, height, compact = false, highlightedAssetId, yVarKey, onPointClick }: VariableScatterProps) {
+function VariableScatterChart({ data, limit, allLimits, unit, height, compact = false, yVarKey, onPointDoubleClick }: VariableScatterProps) {
   const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const trendLine = useMemo(() => buildTrendLine(data), [data])
@@ -418,18 +418,17 @@ function VariableScatterChart({ data, limit, allLimits, unit, height, compact = 
           shape={(props: any) => {
             const { cx, cy, payload } = props
             if (!isFinite(cx) || !isFinite(cy)) return <g />
-            const isHighlighted = payload.assetId === highlightedAssetId
             const color = getPointColor(payload.y, limit)
             return (
               <circle
                 cx={cx} cy={cy}
-                r={isHighlighted ? 7 : compact ? 3.5 : 4.5}
+                r={compact ? 3.5 : 4.5}
                 fill={color}
-                fillOpacity={isHighlighted ? 1 : 0.75}
-                stroke={isHighlighted ? '#1e293b' : color}
-                strokeWidth={isHighlighted ? 2 : 0.5}
-                style={{ cursor: onPointClick ? 'pointer' : 'default' }}
-                onClick={() => onPointClick?.(payload.assetId)}
+                fillOpacity={0.75}
+                stroke={color}
+                strokeWidth={0.5}
+                style={{ cursor: onPointDoubleClick ? 'pointer' : 'default' }}
+                onDoubleClick={() => onPointDoubleClick?.(payload.assetId)}
                 onMouseEnter={(e) => {
                   const rect = containerRef.current?.getBoundingClientRect()
                   if (!rect) return
@@ -614,11 +613,15 @@ interface Props {
 // ─── Main component ───
 
 export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
+  const router = useRouter()
   const [selectedClientId, setSelectedClientId] = useState<string>('all')
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
   const [selectedComponentType, setSelectedComponentType] = useState('motor')
   const [selectedVariable, setSelectedVariable] = useState('ironFe')
-  const [highlightedAssetId, setHighlightedAssetId] = useState<string | null>(null)
+
+  const handlePointDoubleClick = (assetId: string) => {
+    router.push(`/lube-analyst/${assetId}`)
+  }
 
   const varsMeta = VARS_BY_COMPONENT[selectedComponentType] ?? VARS_BY_COMPONENT.motor
   const currentVarMeta = varsMeta.find(v => v.key === selectedVariable) ?? varsMeta[0]
@@ -674,9 +677,6 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
     return counts
   }, [scatterData, currentLimits])
 
-  function handlePointClick(assetId: string) {
-    setHighlightedAssetId(assetId)
-  }
 
   function handleComponentChange(ct: string) {
     setSelectedComponentType(ct)
@@ -700,7 +700,7 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Empresa</label>
             <select
               value={selectedClientId}
-              onChange={e => { setSelectedClientId(e.target.value); setSelectedAssetId(null); setHighlightedAssetId(null) }}
+              onChange={e => { setSelectedClientId(e.target.value); setSelectedAssetId(null) }}
               className="text-[13px] font-semibold text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-blue-300 outline-none"
             >
               <option value="all">Toda la flota</option>
@@ -714,7 +714,7 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Equipo</label>
               <select
                 value={selectedAssetId ?? ''}
-                onChange={e => { setSelectedAssetId(e.target.value || null); setHighlightedAssetId(e.target.value || null) }}
+                onChange={e => setSelectedAssetId(e.target.value || null)}
                 className="text-[13px] font-semibold text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-blue-300 outline-none"
               >
                 <option value="">Todos los equipos</option>
@@ -760,7 +760,7 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
           {/* Clear asset filter */}
           {selectedAssetId && (
             <button
-              onClick={() => { setSelectedAssetId(null); setHighlightedAssetId(null) }}
+              onClick={() => setSelectedAssetId(null)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[12px] font-semibold transition-colors"
             >
               <X className="h-3.5 w-3.5" />
@@ -810,9 +810,8 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
             allLimits={limits}
             unit={currentVarMeta?.unit ?? ''}
             height={340}
-            highlightedAssetId={highlightedAssetId}
             yVarKey={selectedVariable}
-            onPointClick={handlePointClick}
+            onPointDoubleClick={handlePointDoubleClick}
           />
 
           {/* Trend legend */}
@@ -909,61 +908,7 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
         </div>
       </div>
 
-      {/* ── Highlighted asset panel ── */}
-      {highlightedAssetId && (
-        <div className="chart-card border-l-4 border-blue-500 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Info className="h-4 w-4 text-blue-500" />
-              <p className="text-[13px] font-bold text-slate-700">
-                Equipo seleccionado: {assets.find(a => a.id === highlightedAssetId)?.code ?? '—'}
-                <span className="text-slate-400 font-normal ml-2">
-                  {assets.find(a => a.id === highlightedAssetId)?.name}
-                </span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/lube-analyst/${highlightedAssetId}`}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold hover:bg-blue-700 transition-colors"
-              >
-                Ver análisis completo
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-              <button
-                onClick={() => setHighlightedAssetId(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Mini summary of points from this asset */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {scatterData
-              .filter(p => p.assetId === highlightedAssetId)
-              .map((p, i) => (
-                <div key={i} className="bg-slate-50 rounded-xl p-3 text-center">
-                  <p className="text-[10px] text-slate-400 mb-1">{new Date(p.sampleDate).toLocaleDateString('es-CO')}</p>
-                  <p className="num text-[18px] font-extrabold" style={{ color: STATUS_COLOR[p.status] }}>
-                    {p.y.toFixed(1)}
-                  </p>
-                  <p className="text-[10px] text-slate-400">{currentVarMeta?.unit} · aceite {Math.round(p.x)}h</p>
-                  <span
-                    className="text-[9px] font-bold capitalize px-1.5 py-0.5 rounded-full"
-                    style={{ background: STATUS_COLOR[p.status] + '20', color: STATUS_COLOR[p.status] }}
-                  >
-                    {p.status}
-                  </span>
-                </div>
-              ))
-            }
-          </div>
-        </div>
-      )}
-
-      {/* ── Grid: one scatter chart per variable (Excel-style small multiples) ── */}
+{/* ── Grid: one scatter chart per variable (Excel-style small multiples) ── */}
       <div className="chart-card p-5">
         <div className="mb-4">
           <p className="text-[14px] font-bold text-slate-700">
@@ -999,9 +944,8 @@ export function LubeAnalysisTab({ points, limits, clients, assets }: Props) {
                   unit={v.unit}
                   height={200}
                   compact
-                  highlightedAssetId={highlightedAssetId}
                   yVarKey={v.key}
-                  onPointClick={handlePointClick}
+                  onPointDoubleClick={handlePointDoubleClick}
                 />
               </div>
             )
