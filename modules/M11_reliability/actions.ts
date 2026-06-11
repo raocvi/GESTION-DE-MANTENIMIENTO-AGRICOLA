@@ -368,10 +368,19 @@ export async function getRepairStandards(groupBy: 'brand' | 'category' | 'client
 // ─── Mantenimientos programados (próximos) ───────────────────────────────────
 
 export async function getUpcomingMaintenance(limit = 30, clientId?: string) {
+  // ScheduledMaintenance no tiene relación Prisma con Asset (solo assetId):
+  // si hay filtro de cliente, resolver primero los IDs de sus activos.
+  let assetFilter: string[] | undefined
+  if (clientId) {
+    const clientAssets = await db.asset.findMany({ where: { clientId }, select: { id: true } })
+    assetFilter = clientAssets.map(a => a.id)
+    if (!assetFilter.length) return []
+  }
+
   const items = await db.scheduledMaintenance.findMany({
     where: {
       status: { in: ['pending', 'due_soon', 'overdue'] },
-      ...(clientId ? { asset: { clientId } } : {}),
+      ...(assetFilter ? { assetId: { in: assetFilter } } : {}),
     },
     orderBy: { dueHours: 'asc' },
     take: limit * 4, // margen para ordenar por proximidad real
