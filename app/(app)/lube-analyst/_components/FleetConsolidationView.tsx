@@ -60,6 +60,7 @@ function ChartTooltip({ active, payload, variable }: ChartTooltipProps) {
   const d = payload[0].payload as unknown as FleetSamplePoint & { x: number; y: number }
   const val = d[variable as keyof FleetSamplePoint] as number | null
   const meta = VAR_META[variable]
+  const statusColor = d.status ? STATUS_DOT_COLORS[d.status] : '#9ca3af'
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-lg text-[11px]">
       <p className="font-bold text-slate-700">{d.assetCode} — {d.assetName}</p>
@@ -68,10 +69,12 @@ function ChartTooltip({ active, payload, variable }: ChartTooltipProps) {
       <div className="mt-1 border-t border-slate-100 pt-1">
         <p className="font-bold text-slate-800">{meta?.label ?? variable}: {val?.toFixed(2) ?? '—'} {meta?.unit ?? ''}</p>
         <p className="text-slate-500">{d.equipmentHours?.toFixed(0) ?? '—'} h equipo</p>
-        <span
-          className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-          style={{ background: STATUS_DOT_COLORS[d.status] + '20', color: STATUS_DOT_COLORS[d.status] }}
-        >{d.status.toUpperCase()}</span>
+        {d.status && (
+          <span
+            className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+            style={{ background: statusColor + '20', color: statusColor }}
+          >{d.status.toUpperCase()}</span>
+        )}
       </div>
     </div>
   )
