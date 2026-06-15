@@ -1350,8 +1350,9 @@ model OilSample {
   fuelPct          Float?    // % dilución combustible
   isoParticleCode  String?   // ISO 4406 p.ej. "18/16/13"
 
-  component  LubeComponent  @relation(fields: [componentId], references: [id])
-  diagnoses  OilDiagnosis[]
+  component    LubeComponent    @relation(fields: [componentId], references: [id])
+  diagnoses    OilDiagnosis[]
+  expertReport OilExpertReport?
 
   @@index([componentId])
   @@index([assetId])
@@ -1394,10 +1395,42 @@ model OilLimit {
   cautionMax    Float
   criticalMax   Float
   condemnedMax  Float?
+  normalMin     Float?
+  cautionMin    Float?
+  criticalMin   Float?
+  condemnedMin  Float?
   source        String   @default("industry_best_practice")
   notes         String?
   updatedAt     DateTime @updatedAt
 
   @@unique([componentType, variable, organizationId])
   @@map("oil_limits")
+}
+
+/// Reporte experto LubriCheck Pro generado por motor tribológico rule-based
+model OilExpertReport {
+  id              String    @id @default(cuid())
+  sampleId        String    @unique
+  sample          OilSample @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+
+  generalStatus   String    // CRITICAL, CAUTION, NORMAL
+  patternsFound   String    @default("[]")  // JSON array: ["A","B"]
+  paramsOutJson   String    @default("[]")  // JSON: [{param,label,value,unit,cautionLimit,criticalLimit,status,isLow}]
+  analysisText    String    @default("")
+  rootCausesJson  String    @default("[]")  // JSON: [{code,description,mechanism,probability}]
+  affectedJson    String    @default("[]")  // JSON: [{component,riskLevel}]
+  immediateActions  String  @default("")
+  shortTermActions  String  @default("")
+  mediumTermActions String  @default("")
+  longTermActions   String  @default("")
+  trendText       String?
+  isFleetAlert    Boolean   @default(false)
+  fleetAlertText  String?
+  nextIntervalH   Float     @default(250)
+  nextParamsJson  String    @default("[]")  // JSON array of strings
+  additionalTests String    @default("[]")  // JSON array of strings
+  engineVersion   String    @default("2.0")
+  createdAt       DateTime  @default(now())
+
+  @@map("oil_expert_reports")
 }

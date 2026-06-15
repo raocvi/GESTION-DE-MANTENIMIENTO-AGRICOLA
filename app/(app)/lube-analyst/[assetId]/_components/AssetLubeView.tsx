@@ -10,6 +10,7 @@ import {
   Cog, RotateCw, Zap, Gauge, CircleStop,
 } from 'lucide-react'
 import type { AssetLubeDetail } from '@/modules/M12_lube_analyst/actions'
+import { ExpertReportPanel } from './ExpertReportPanel'
 
 interface Props {
   detail: AssetLubeDetail
@@ -151,6 +152,10 @@ export function AssetLubeView({ detail, expandedComponentType }: Props) {
                             </div>
                           ))}
                         </div>
+                        <ExpertReportPanel
+                          sampleId={comp.latestSample!.id}
+                          sampleDate={comp.latestSample!.sampleDate}
+                        />
                       </div>
                     ) : (
                       <p className="text-[12px] text-slate-400">Sin muestras registradas</p>

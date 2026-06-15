@@ -81,6 +81,7 @@ export interface AssetLubeDetail {
     recommendedOil: string | null
     changeIntervalHours: number | null
     latestSample: {
+      id: string
       status: string
       overallDiagnosis: string | null
       recommendation: string | null
@@ -351,6 +352,7 @@ export async function getAssetLubeDetail(assetId: string): Promise<AssetLubeDeta
         recommendedOil: comp.recommendedOil,
         changeIntervalHours: comp.changeIntervalHours,
         latestSample: latestSample ? {
+          id: latestSample.id,
           status: latestSample.status,
           overallDiagnosis: latestSample.overallDiagnosis,
           recommendation: latestSample.recommendation,
@@ -633,6 +635,246 @@ export async function getFaultFrequency(componentType = 'motor'): Promise<FaultF
     })
 
   return { componentType, total, rows }
+}
+
+// ─── Expert Report ───
+
+import { analyzeOilSample, type ExpertReport, type LimitsMap, type SampleInput } from './expert-engine'
+
+export interface StoredExpertReport extends ExpertReport {
+  id: string
+  sampleId: string
+  createdAt: string
+}
+
+export async function generateExpertReport(sampleId: string): Promise<StoredExpertReport> {
+  // Load sample with component and history
+  const sample = await db.oilSample.findUnique({
+    where: { id: sampleId },
+    include: {
+      component: true,
+    },
+  })
+  if (!sample) throw new Error('Sample not found')
+
+  // Load history (previous samples for this component, sorted asc)
+  const history = await db.oilSample.findMany({
+    where: { componentId: sample.componentId, id: { not: sampleId } },
+    orderBy: { equipmentHours: 'asc' },
+    take: 10,
+  })
+
+  // Load limits for this component type
+  const rawLimits = await db.oilLimit.findMany({
+    where: { componentType: sample.component.componentType, organizationId: '' },
+  })
+  const limits: LimitsMap = Object.fromEntries(
+    rawLimits.map(l => [l.variable, {
+      normalMax: l.normalMax, cautionMax: l.cautionMax,
+      criticalMax: l.criticalMax, condemnedMax: l.condemnedMax ?? undefined,
+      normalMin: l.normalMin ?? undefined, cautionMin: l.cautionMin ?? undefined,
+      criticalMin: l.criticalMin ?? undefined, condemnedMin: l.condemnedMin ?? undefined,
+      unit: l.unit,
+    }])
+  )
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toInput = (s: any): SampleInput => ({
+    ironFe: s.ironFe, copperCu: s.copperCu, aluminumAl: s.aluminumAl,
+    chromeCr: s.chromeCr, leadPb: s.leadPb, tinSn: s.tinSn,
+    siliconSi: s.siliconSi, sodiumNa: s.sodiumNa, potassiumK: s.potassiumK,
+    boronB: s.boronB, molybdenumMo: s.molybdenumMo, zincZn: s.zincZn,
+    pqIndex: s.pqIndex, tbn: s.tbn, tan: s.tan,
+    viscosity40: s.viscosity40, viscosity100: s.viscosity100,
+    oxidation: s.oxidation, nitration: s.nitration, sulfation: s.sulfation,
+    soot: s.soot, waterPct: s.waterPct, glycolPpm: s.glycolPpm,
+    fuelPct: s.fuelPct, oilHours: s.oilHours, equipmentHours: s.equipmentHours,
+  })
+
+  const report = analyzeOilSample(
+    toInput(sample),
+    sample.component.componentType,
+    limits,
+    history.map(toInput),
+  )
+
+  // Upsert into DB
+  const stored = await db.oilExpertReport.upsert({
+    where: { sampleId },
+    create: {
+      sampleId,
+      generalStatus: report.generalStatus,
+      patternsFound: JSON.stringify(report.patternsDetected),
+      paramsOutJson: JSON.stringify(report.paramsOutOfLimit),
+      analysisText: report.multivariableAnalysis,
+      rootCausesJson: JSON.stringify(report.rootCauses),
+      affectedJson: JSON.stringify(report.affectedComponents),
+      immediateActions: report.immediateActions,
+      shortTermActions: report.shortTermActions,
+      mediumTermActions: report.mediumTermActions,
+      longTermActions: report.longTermActions,
+      trendText: report.trendAnalysis,
+      isFleetAlert: report.isFleetAlert,
+      fleetAlertText: report.fleetAlertText,
+      nextIntervalH: report.nextIntervalHours,
+      nextParamsJson: JSON.stringify(report.nextCriticalParams),
+      additionalTests: JSON.stringify(report.additionalTests),
+    },
+    update: {
+      generalStatus: report.generalStatus,
+      patternsFound: JSON.stringify(report.patternsDetected),
+      paramsOutJson: JSON.stringify(report.paramsOutOfLimit),
+      analysisText: report.multivariableAnalysis,
+      rootCausesJson: JSON.stringify(report.rootCauses),
+      affectedJson: JSON.stringify(report.affectedComponents),
+      immediateActions: report.immediateActions,
+      shortTermActions: report.shortTermActions,
+      mediumTermActions: report.mediumTermActions,
+      longTermActions: report.longTermActions,
+      trendText: report.trendAnalysis,
+      isFleetAlert: report.isFleetAlert,
+      fleetAlertText: report.fleetAlertText,
+      nextIntervalH: report.nextIntervalHours,
+      nextParamsJson: JSON.stringify(report.nextCriticalParams),
+      additionalTests: JSON.stringify(report.additionalTests),
+    },
+  })
+
+  return { ...report, id: stored.id, sampleId, createdAt: stored.createdAt.toISOString() }
+}
+
+export async function getExpertReport(sampleId: string): Promise<StoredExpertReport | null> {
+  const r = await db.oilExpertReport.findUnique({ where: { sampleId } })
+  if (!r) return null
+  return {
+    id: r.id,
+    sampleId: r.sampleId,
+    createdAt: r.createdAt.toISOString(),
+    generalStatus: r.generalStatus as ExpertReport['generalStatus'],
+    patternsDetected: JSON.parse(r.patternsFound),
+    paramsOutOfLimit: JSON.parse(r.paramsOutJson),
+    multivariableAnalysis: r.analysisText,
+    rootCauses: JSON.parse(r.rootCausesJson),
+    affectedComponents: JSON.parse(r.affectedJson),
+    immediateActions: r.immediateActions,
+    shortTermActions: r.shortTermActions,
+    mediumTermActions: r.mediumTermActions,
+    longTermActions: r.longTermActions,
+    trendAnalysis: r.trendText ?? null,
+    isFleetAlert: r.isFleetAlert,
+    fleetAlertText: r.fleetAlertText ?? null,
+    nextIntervalHours: r.nextIntervalH,
+    nextCriticalParams: JSON.parse(r.nextParamsJson),
+    additionalTests: JSON.parse(r.additionalTests),
+  }
+}
+
+// ─── Fleet Consolidation ───
+
+export interface FleetSamplePoint {
+  sampleId: string
+  assetId: string
+  assetName: string
+  assetCode: string
+  clientId: string
+  clientName: string
+  componentType: string
+  componentName: string
+  sampleDate: string
+  equipmentHours: number | null
+  status: string
+  ironFe: number | null; copperCu: number | null; aluminumAl: number | null
+  chromeCr: number | null; leadPb: number | null; siliconSi: number | null
+  sodiumNa: number | null; potassiumK: number | null; pqIndex: number | null
+  tbn: number | null; tan: number | null; viscosity40: number | null
+  oxidation: number | null; soot: number | null; waterPct: number | null
+  fuelPct: number | null
+}
+
+export interface FleetConsolidationData {
+  samples: FleetSamplePoint[]
+  limits: Record<string, { cautionMax: number; criticalMax: number; normalMin?: number | null; cautionMin?: number | null; criticalMin?: number | null; unit: string }>
+  componentType: string
+  clientName: string | null
+  totalAssets: number
+  totalSamples: number
+}
+
+export async function getFleetConsolidation(
+  clientId?: string,
+  componentType = 'motor',
+): Promise<FleetConsolidationData> {
+  const orgId = await getOrgId()
+
+  const whereAsset = clientId ? { organizationId: orgId, clientId } : { organizationId: orgId }
+  const assets = await db.asset.findMany({
+    where: whereAsset,
+    select: { id: true, name: true, internalCode: true, clientId: true, client: { select: { name: true } } },
+  })
+  const assetIds = assets.map(a => a.id)
+  const assetMap = Object.fromEntries(assets.map(a => [a.id, a]))
+
+  const components = await db.lubeComponent.findMany({
+    where: { assetId: { in: assetIds }, componentType },
+    select: { id: true, assetId: true, name: true, componentType: true },
+  })
+  const compMap = Object.fromEntries(components.map(c => [c.id, c]))
+  const compIds = components.map(c => c.id)
+
+  const rawSamples = await db.oilSample.findMany({
+    where: { componentId: { in: compIds } },
+    orderBy: { equipmentHours: 'asc' },
+    select: {
+      id: true, componentId: true, assetId: true, sampleDate: true, equipmentHours: true, status: true,
+      ironFe: true, copperCu: true, aluminumAl: true, chromeCr: true, leadPb: true,
+      siliconSi: true, sodiumNa: true, potassiumK: true, pqIndex: true,
+      tbn: true, tan: true, viscosity40: true, oxidation: true, soot: true,
+      waterPct: true, fuelPct: true,
+    },
+  })
+
+  const rawLimits = await db.oilLimit.findMany({
+    where: { componentType, organizationId: '' },
+  })
+  const limits = Object.fromEntries(rawLimits.map(l => [l.variable, {
+    cautionMax: l.cautionMax, criticalMax: l.criticalMax,
+    normalMin: l.normalMin, cautionMin: l.cautionMin, criticalMin: l.criticalMin,
+    unit: l.unit,
+  }]))
+
+  const samples: FleetSamplePoint[] = rawSamples.map(s => {
+    const comp = compMap[s.componentId]
+    const asset = assetMap[s.assetId]
+    return {
+      sampleId: s.id,
+      assetId: s.assetId,
+      assetName: asset?.name ?? '—',
+      assetCode: asset?.internalCode ?? '—',
+      clientId: asset?.clientId ?? '',
+      clientName: asset?.client?.name ?? '—',
+      componentType: comp?.componentType ?? componentType,
+      componentName: comp?.name ?? '—',
+      sampleDate: s.sampleDate.toISOString(),
+      equipmentHours: s.equipmentHours,
+      status: s.status,
+      ironFe: s.ironFe, copperCu: s.copperCu, aluminumAl: s.aluminumAl,
+      chromeCr: s.chromeCr, leadPb: s.leadPb, siliconSi: s.siliconSi,
+      sodiumNa: s.sodiumNa, potassiumK: s.potassiumK, pqIndex: s.pqIndex,
+      tbn: s.tbn, tan: s.tan, viscosity40: s.viscosity40,
+      oxidation: s.oxidation, soot: s.soot, waterPct: s.waterPct, fuelPct: s.fuelPct,
+    }
+  })
+
+  const clientName = clientId ? (assets[0]?.client?.name ?? null) : null
+
+  return {
+    samples,
+    limits,
+    componentType,
+    clientName,
+    totalAssets: new Set(components.map(c => c.assetId)).size,
+    totalSamples: samples.length,
+  }
 }
 
 // ─── Helpers ───
