@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { getAssetById } from '@modules/M03_assets/actions'
 import { formatDate } from '@core/lib/utils'
 import { ChevronLeft, Tractor, ClipboardList, AlertTriangle } from 'lucide-react'
+import { EquipmentImage } from '@core/components/EquipmentImage'
 
 export const metadata: Metadata = { title: 'Equipo — AgroMaint Pro' }
 
@@ -47,6 +48,12 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
+          <EquipmentImage
+            assetName={asset.name}
+            modelName={asset.model?.name}
+            className="h-80"
+          />
+
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="font-semibold text-slate-900 mb-4">Información Técnica</h2>
             <dl className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">

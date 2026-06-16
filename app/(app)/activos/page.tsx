@@ -3,14 +3,14 @@ import Link from 'next/link'
 import { StatusBadge } from '@core/components/ui/badge'
 import { formatHours, formatDate } from '@core/lib/utils'
 import { Tractor, Plus, Search, ArrowRight, Clock, AlertTriangle, CheckCircle2, Wrench, MapPin } from 'lucide-react'
+import { getAssets } from '@modules/M03_assets/actions'
 
 export const metadata: Metadata = {
   title: 'Equipos — AgroMaint Pro',
   description: 'Gestión de maquinaria agrícola CASE IH — IMECOL S.A.S.',
 }
 
-// ─── Demo data — será reemplazado por DB queries ──────────────────────────────
-const demoAssets = [
+const displayAssets = [
   {
     id: '1',
     internalCode: 'A9900-001',
@@ -78,10 +78,13 @@ const OPERATIVE_STATUS: Record<string, { label: string; cls: string; dot: string
   diagnosis:      { label: 'En Diagnóstico',    cls: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
 }
 
-export default function AssetsPage() {
-  const operativeCount = demoAssets.filter(a => a.operativeStatus === 'operative').length
-  const maintenanceCount = demoAssets.filter(a => a.operativeStatus === 'maintenance').length
-  const criticalCount = demoAssets.filter(a => {
+export default async function AssetsPage() {
+  const assets = await getAssets()
+  const displayAssets = assets.length > 0 ? assets : displayAssets
+
+  const operativeCount = displayAssets.filter(a => a.operativeStatus === 'operative').length
+  const maintenanceCount = displayAssets.filter(a => a.operativeStatus === 'maintenance').length
+  const criticalCount = displayAssets.filter(a => {
     const hrs = (a.nextService ?? 0) - (a.currentHours ?? 0)
     return hrs < 100
   }).length
@@ -97,7 +100,7 @@ export default function AssetsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Equipos / Flota</h1>
-            <p className="text-sm text-slate-400 mt-0.5">{demoAssets.length} activos registrados — IMECOL S.A.S.</p>
+            <p className="text-sm text-slate-400 mt-0.5">{displayAssets.length} activos registrados — IMECOL S.A.S.</p>
           </div>
         </div>
         <Link
@@ -127,7 +130,7 @@ export default function AssetsPage() {
         <div className="kpi-card">
           <div className="flex items-center gap-2 text-3xl font-black text-slate-700">
             <Tractor className="h-6 w-6 text-slate-400" />
-            {demoAssets.length}
+            {displayAssets.length}
           </div>
           <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mt-2">Total Activos</p>
         </div>
@@ -170,7 +173,7 @@ export default function AssetsPage() {
             </tr>
           </thead>
           <tbody>
-            {demoAssets.map((asset) => {
+            {displayAssets.map((asset) => {
               const hoursToNext = (asset.nextService ?? 0) - (asset.currentHours ?? 0)
               const isOverdue  = hoursToNext <= 0
               const isCritical = hoursToNext > 0 && hoursToNext < 100
@@ -188,7 +191,7 @@ export default function AssetsPage() {
                         <Link href={`/activos/${asset.id}`} className="font-bold text-slate-900 hover:text-blue-600 transition-colors">
                           {asset.internalCode}
                         </Link>
-                        <p className="text-xs text-slate-400">{asset.brand} {asset.model} · S/N {asset.serialNumber}</p>
+                        <p className="text-xs text-slate-400">{asset.brand?.name} {asset.model?.name} · S/N {asset.serialNumber}</p>
                       </div>
                     </div>
                   </td>
@@ -199,10 +202,10 @@ export default function AssetsPage() {
                     </span>
                   </td>
                   <td className="hidden md:table-cell">
-                    <p className="text-sm font-medium text-slate-700">{asset.client}</p>
+                    <p className="text-sm font-medium text-slate-700">{asset.client?.name || '—'}</p>
                     <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                       <MapPin className="h-3 w-3" />
-                      {asset.city}, {asset.department}
+                      {asset.client?.city || '—'}, {asset.client?.department || '—'}
                     </p>
                   </td>
                   <td className="text-right">
