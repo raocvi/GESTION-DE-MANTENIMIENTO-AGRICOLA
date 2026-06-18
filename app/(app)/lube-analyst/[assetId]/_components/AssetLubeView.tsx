@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Image from 'next/image'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Legend,
@@ -11,6 +12,33 @@ import {
 } from 'lucide-react'
 import type { AssetLubeDetail } from '@/modules/M12_lube_analyst/actions'
 import { ExpertReportPanel } from './ExpertReportPanel'
+
+// Mapa: assetType_componentType → ruta de imagen
+const COMPONENT_IMAGES: Record<string, string> = {
+  a9900_motor: '/equipment-images/a9900_motor.png',
+}
+
+function getComponentImageSrc(assetName: string, componentType: string): string | null {
+  const assetKey = assetName.toUpperCase().includes('A9900') ? 'a9900' : null
+  if (!assetKey) return null
+  return COMPONENT_IMAGES[`${assetKey}_${componentType}`] ?? null
+}
+
+function ComponentPhoto({ src, label }: { src: string; label: string }) {
+  const [err, setErr] = useState(false)
+  if (err) return null
+  return (
+    <div className="relative w-full rounded-xl overflow-hidden bg-slate-100" style={{ aspectRatio: '4/3' }}>
+      <Image
+        src={src}
+        alt={label}
+        fill
+        className="object-contain p-3"
+        onError={() => setErr(true)}
+      />
+    </div>
+  )
+}
 
 interface Props {
   detail: AssetLubeDetail
@@ -123,6 +151,14 @@ export function AssetLubeView({ detail, expandedComponentType }: Props) {
 
             {isOpen && (
               <div className="px-4 pb-5 space-y-5 border-t border-slate-100">
+                {(() => {
+                  const imgSrc = getComponentImageSrc(detail.assetName, comp.componentType)
+                  return imgSrc ? (
+                    <div className="pt-4">
+                      <ComponentPhoto src={imgSrc} label={`${COMPONENT_LABEL[comp.componentType] || comp.componentType} — ${comp.name}`} />
+                    </div>
+                  ) : null
+                })()}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 pt-4">
                   {/* Latest results */}
                   <div>

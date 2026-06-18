@@ -5,14 +5,16 @@ import { getAssetById } from '@modules/M03_assets/actions'
 import { formatDate } from '@core/lib/utils'
 import { ChevronLeft, Tractor, ClipboardList, AlertTriangle } from 'lucide-react'
 import { EquipmentImage } from '@core/components/EquipmentImage'
+import { CriticalComponentsSection } from './_components/CriticalComponentsSection'
 
 export const metadata: Metadata = { title: 'Equipo — AgroMaint Pro' }
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  operative:   { label: 'Operativo', cls: 'bg-emerald-100 text-emerald-700' },
-  maintenance: { label: 'En mantenimiento', cls: 'bg-amber-100 text-amber-700' },
-  out_of_service: { label: 'Fuera servicio', cls: 'bg-red-100 text-red-700' },
+  operative:      { label: 'Operativo',        cls: 'bg-emerald-100 text-emerald-700' },
+  maintenance:    { label: 'En mantenimiento', cls: 'bg-amber-100 text-amber-700' },
+  out_of_service: { label: 'Fuera servicio',   cls: 'bg-red-100 text-red-700' },
 }
+
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -20,6 +22,10 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   if (!asset) notFound()
 
   const st = STATUS_MAP[asset.operativeStatus] ?? { label: asset.operativeStatus, cls: 'bg-slate-100 text-slate-700' }
+
+  const criticalComponents = (asset.lubeComponents ?? []).filter(c =>
+    ['motor', 'transmission', 'hydraulic', 'final_drive'].includes(c.componentType)
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -53,6 +59,15 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
             modelName={asset.model?.name}
             className="h-80"
           />
+
+          {/* Componentes Críticos */}
+          {criticalComponents.length > 0 && (
+            <CriticalComponentsSection
+              components={criticalComponents}
+              assetId={asset.id}
+              assetName={asset.name}
+            />
+          )}
 
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="font-semibold text-slate-900 mb-4">Información Técnica</h2>

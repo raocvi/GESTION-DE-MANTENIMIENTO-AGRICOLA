@@ -397,7 +397,7 @@ async function main() {
   // 5. Categorías, Marcas, Modelos
   const caseIH = await db.brand.upsert({ where: { name: 'CASE IH' }, update: {}, create: { name: 'CASE IH', code: 'CASEIH' } })
   const johnDeere = await db.brand.upsert({ where: { name: 'JOHN DEERE' }, update: {}, create: { name: 'JOHN DEERE', code: 'JDEERE' } })
-  
+
   const catCosechadora = await db.assetCategory.upsert({ where: { code: 'COSE' }, update: {}, create: { code: 'COSE', name: 'Cosechadora' } })
   const catTractor = await db.assetCategory.upsert({ where: { code: 'TRAC' }, update: {}, create: { code: 'TRAC', name: 'Tractor' } })
 
@@ -408,6 +408,16 @@ async function main() {
   const model8R = await db.assetModel.upsert({
     where: { id: 'model-8r' }, update: {},
     create: { id: 'model-8r', brandId: johnDeere.id, categoryId: catTractor.id, name: '8R 370', code: '8R' }
+  })
+  const modelPuma = await db.assetModel.upsert({
+    where: { id: 'model-puma165' }, update: {},
+    create: {
+      id: 'model-puma165', brandId: caseIH.id, categoryId: catTractor.id,
+      name: 'Puma 165', code: 'PUMA165',
+      engine: 'FPT Cursor 9 - 165 HP', power: '165 HP',
+      transmission: 'Powershift 19x6',
+      hydraulics: 'Sistema hidráulico posterior 110 L/min',
+    }
   })
 
   // 6. Activos (100+)
@@ -432,6 +442,35 @@ async function main() {
       },
     })
     assets.push(asset)
+  }
+
+  // 6b. Tractores CASE IH PUMA 165 (10 unidades)
+  const pumaModels = ['165', '180', '195', '210']
+  const pumaStatuses = ['operative', 'operative', 'operative', 'operative', 'operative', 'operative', 'maintenance', 'operative', 'operative', 'out_of_service']
+  for (let i = 1; i <= 10; i++) {
+    const modelVariant = pumaModels[(i - 1) % pumaModels.length]
+    await db.asset.upsert({
+      where: { id: `puma-${i.toString().padStart(3, '0')}` },
+      update: {
+        name: `Tractor PUMA ${modelVariant}`,
+        internalCode: `PUMA-${i.toString().padStart(3, '0')}`,
+      },
+      create: {
+        id: `puma-${i.toString().padStart(3, '0')}`,
+        organizationId: org.id,
+        clientId: clients[(i * 3) % 50].id,
+        brandId: caseIH.id,
+        modelId: modelPuma.id,
+        categoryId: catTractor.id,
+        internalCode: `PUMA-${i.toString().padStart(3, '0')}`,
+        serialNumber: `PUMA${i}SN2024`,
+        name: `Tractor PUMA ${modelVariant}`,
+        year: 2022 + (i % 3),
+        operativeStatus: pumaStatuses[i - 1],
+        criticality: 'high',
+        currentHours: 800 + i * 120,
+      },
+    })
   }
 
   // 7. Proyectos (Órdenes Correctivas)

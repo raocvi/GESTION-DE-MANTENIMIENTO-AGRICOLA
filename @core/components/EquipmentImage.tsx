@@ -11,6 +11,14 @@ interface EquipmentImageProps {
   className?: string
 }
 
+function resolveImagePath(assetName: string, modelName: string | undefined, equipmentType: string | undefined): string {
+  if (equipmentType) return `/equipment-images/${equipmentType.toLowerCase()}_main.png`
+  const name = (assetName + (modelName ?? '')).toUpperCase()
+  if (name.includes('A9900')) return '/equipment-images/a9900_main.png'
+  if (name.includes('PUMA')) return '/equipment-images/puma_main.png'
+  return '/equipment-images/unknown_main.png'
+}
+
 export function EquipmentImage({
   assetName,
   modelName,
@@ -20,18 +28,7 @@ export function EquipmentImage({
   const [imageError, setImageError] = useState(false)
   const [showModal, setShowModal] = useState(false)
 
-  // Determinar tipo de equipamiento basado en nombre
-  const getEquipmentType = () => {
-    const name = (assetName + modelName).toUpperCase()
-    if (name.includes('A9900')) return 'a9900'
-    if (name.includes('PUMA')) return 'puma'
-    return 'unknown'
-  }
-
-  const eqType = equipmentType?.toLowerCase() || getEquipmentType()
-
-  // Construir ruta de imagen base
-  const imagePath = `/equipment-images/${eqType}_main.png`
+  const imagePath = resolveImagePath(assetName, modelName, equipmentType)
 
   if (imageError) {
     return (
@@ -46,8 +43,8 @@ export function EquipmentImage({
   }
 
   return (
-    <div className={`relative group rounded-lg overflow-hidden bg-slate-100 ${className}`}>
-      <div className="relative w-full aspect-square">
+    <>
+      <div className={`relative group rounded-lg overflow-hidden bg-slate-100 ${className}`}>
         <Image
           src={imagePath}
           alt={assetName}
@@ -56,39 +53,36 @@ export function EquipmentImage({
           onError={() => setImageError(true)}
           priority
         />
+        <button
+          onClick={() => setShowModal(true)}
+          className="absolute top-2 right-2 p-2 bg-white rounded-lg shadow opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Ampliar imagen"
+        >
+          <Maximize2 className="h-4 w-4 text-slate-600" />
+        </button>
       </div>
-
-      <button
-        onClick={() => setShowModal(true)}
-        className="absolute top-2 right-2 p-2 bg-white rounded-lg shadow opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Ampliar imagen"
-      >
-        <Maximize2 className="h-4 w-4 text-slate-600" />
-      </button>
 
       {showModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           onClick={() => setShowModal(false)}
         >
-          <div className="relative w-full max-w-2xl max-h-[90vh]">
+          <div className="relative w-full max-w-3xl" style={{ aspectRatio: '16/9' }}>
             <Image
               src={imagePath}
               alt={assetName}
-              width={800}
-              height={800}
-              className="object-contain w-full h-full"
-              onError={() => setImageError(true)}
+              fill
+              className="object-contain"
             />
             <button
               onClick={() => setShowModal(false)}
-              className="absolute top-2 right-2 p-2 bg-white rounded-lg text-slate-600 hover:text-slate-900"
+              className="absolute top-2 right-2 p-2 bg-white rounded-lg text-slate-600 hover:text-slate-900 shadow"
             >
               ✕
             </button>
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
