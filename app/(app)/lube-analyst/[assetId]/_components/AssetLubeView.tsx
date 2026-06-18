@@ -154,8 +154,10 @@ export function AssetLubeView({ detail, expandedComponentType }: Props) {
                 {(() => {
                   const imgSrc = getComponentImageSrc(detail.assetName, comp.componentType)
                   return imgSrc ? (
-                    <div className="pt-4">
-                      <ComponentPhoto src={imgSrc} label={`${COMPONENT_LABEL[comp.componentType] || comp.componentType} — ${comp.name}`} />
+                    <div className="pt-4 flex">
+                      <div className="w-1/4">
+                        <ComponentPhoto src={imgSrc} label={`${COMPONENT_LABEL[comp.componentType] || comp.componentType} — ${comp.name}`} />
+                      </div>
                     </div>
                   ) : null
                 })()}

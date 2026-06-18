@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Tractor, ClipboardList, Package,
   Users, Building2, BarChart3, Settings, Plus,
-  HelpCircle, Wrench, Activity, FileBarChart, Droplets
+  HelpCircle, Wrench, Activity, FileBarChart, Droplets, CalendarDays,
 } from 'lucide-react'
 
 const navGroups = [
@@ -23,6 +23,7 @@ const navGroups = [
     items: [
       { label: 'Clientes',           href: '/clientes',       icon: Building2,       match: (p: string) => p.startsWith('/clientes') },
       { label: 'Técnicos',           href: '/tecnicos',       icon: Users,           match: (p: string) => p.startsWith('/tecnicos') },
+      { label: 'Agenda del Taller',  href: '/taller',         icon: CalendarDays,    match: (p: string) => p.startsWith('/taller') },
       { label: 'Planes Preventivos', href: '/planes',         icon: Wrench,          match: (p: string) => p.startsWith('/planes') },
       { label: 'Repuestos',          href: '/solicitudes',    icon: Package,         match: (p: string) => p.startsWith('/solicitudes') },
     ]

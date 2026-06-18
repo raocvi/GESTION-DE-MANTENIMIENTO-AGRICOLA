@@ -1,18 +1,13 @@
 "use client"
 
-/**
- * Informe Gerencial ejecutivo — diseño print-friendly para enviar al cliente.
- * Secciones: portada/resumen, KPIs, estado de flota, proyectos con mini-Gantt,
- * fallas por sistema, próximos mantenimientos, pie corporativo IMECOL.
- */
-
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import {
   Printer, ArrowLeft, Gauge, Timer, CheckCircle2, AlertTriangle,
-  Tractor, CalendarClock, Wrench, FileBarChart,
+  Tractor, CalendarClock, Wrench, FileBarChart, Download,
 } from 'lucide-react'
 import type { ReliabilityKpis, MachineFailureRanking, SystemFailureRanking } from '@/modules/M11_reliability/actions'
+import { generateManagerialReportHTML } from './managerialReportExporter'
 
 interface ProjectTask {
   id: string; name: string; progress: number; status: string
@@ -125,6 +120,25 @@ export function ManagerialReport({ client, kpis, machines, systems, upcoming, as
   const avgProgress = projects.length
     ? Math.round(projects.reduce((s, p) => s + (p.tasks.length ? p.tasks.reduce((x, t) => x + t.progress, 0) / p.tasks.length : 0), 0) / projects.length)
     : 0
+  const [downloading, setDownloading] = useState(false)
+
+  function handleDownloadHTML() {
+    setDownloading(true)
+    try {
+      const html = generateManagerialReportHTML({ client, kpis, machines, systems, upcoming, assets, projects, generatedAt })
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `InformeGerencial_${client.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.html`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto print:max-w-none">
@@ -134,12 +148,22 @@ export function ManagerialReport({ client, kpis, machines, systems, upcoming, as
         <Link href="/informes" className="inline-flex items-center gap-1.5 text-[13px] font-bold text-slate-500 hover:text-slate-700 transition-colors">
           <ArrowLeft className="h-3.5 w-3.5" /> Volver a informes
         </Link>
-        <button
-          onClick={() => window.print()}
-          className="inline-flex items-center gap-2 rounded-xl gradient-brand px-4 py-2.5 text-[13px] font-bold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.97]"
-        >
-          <Printer className="h-3.5 w-3.5" /> Imprimir / Exportar PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadHTML}
+            disabled={downloading}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-[13px] font-bold text-white shadow-md transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:opacity-60"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {downloading ? 'Generando…' : 'Descargar HTML'}
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 rounded-xl gradient-brand px-4 py-2.5 text-[13px] font-bold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.97]"
+          >
+            <Printer className="h-3.5 w-3.5" /> Imprimir / Exportar PDF
+          </button>
+        </div>
       </div>
 
       {/* ─── Encabezado del informe ─── */}

@@ -1434,3 +1434,37 @@ model OilExpertReport {
 
   @@map("oil_expert_reports")
 }
+
+// ─── CATÁLOGO DE SERVICIOS (editable desde la app) ───────────────────────────
+
+model ServiceComponent {
+  id        String   @id @default(cuid())
+  value     String   @unique // 'motor', 'transmission', 'hydraulic', etc.
+  label     String           // 'Motor', 'Transmisión', etc.
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  serviceTypes ServiceType[]
+
+  @@map("service_components")
+}
+
+model ServiceType {
+  id             String   @id @default(cuid())
+  componentId    String
+  value          String   // 'oil_filter', 'engine_overhaul', etc.
+  label          String   // Descripción legible del servicio
+  estimatedHours Float    @default(2)
+  type           String   @default("corrective") // preventive | corrective | inspection | predictive
+  order          Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  component ServiceComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([componentId, value])
+  @@map("service_types")
+}

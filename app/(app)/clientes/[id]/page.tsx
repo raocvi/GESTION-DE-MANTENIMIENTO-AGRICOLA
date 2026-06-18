@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getClientById } from '@modules/M06_clients/actions'
 import { formatDate } from '@core/lib/utils'
-import { ChevronLeft, Building2, Tractor, ClipboardList, Edit } from 'lucide-react'
+import { ChevronLeft, Building2, Tractor, ClipboardList, Edit, FileText } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Cliente — AgroMaint Pro' }
 
@@ -34,9 +34,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               {client.name && <p className="text-sm text-slate-500">{client.name}</p>}
             </div>
           </div>
-          <Link href={`/clientes/${client.id}/editar`} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            <Edit className="h-4 w-4" /> Editar
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/clientes/${client.id}/reporte`} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 shadow-sm">
+              <FileText className="h-4 w-4" /> Ver Reporte
+            </Link>
+            <Link href={`/clientes/${client.id}/editar`} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <Edit className="h-4 w-4" /> Editar
+            </Link>
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

@@ -85,7 +85,11 @@ export async function getWorkOrderById(id: string) {
  */
 export async function getAssetsClientsTechnicians() {
   const [assets, clients, technicians] = await Promise.all([
-    db.asset.findMany({ where: { isActive: true }, select: { id: true, internalCode: true, name: true } }),
+    db.asset.findMany({
+      where: { isActive: true },
+      select: { id: true, internalCode: true, name: true, category: { select: { name: true } } },
+      orderBy: { internalCode: 'asc' },
+    }),
     db.client.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
     db.user.findMany({ where: { isActive: true }, select: { id: true, name: true } })
   ])
@@ -115,9 +119,14 @@ export async function createWorkOrder(formData: FormData) {
   const user = await db.user.findFirst()
   if (!user) throw new Error('No hay usuarios creados')
 
-  const clientId    = formData.get('clientId') as string || undefined
-  const assetId     = formData.get('assetId') as string || undefined
-  const technicianId = formData.get('technicianId') as string || undefined
+  const clientId         = formData.get('clientId') as string || undefined
+  const assetId          = formData.get('assetId') as string || undefined
+  const technicianId     = formData.get('technicianId') as string || undefined
+  const componentAffected = formData.get('componentAffected') as string || undefined
+  const estimatedHoursRaw = formData.get('estimatedHours') as string
+  const estimatedHours   = estimatedHoursRaw ? parseFloat(estimatedHoursRaw) : undefined
+  const scheduledDateRaw  = formData.get('scheduledDate') as string
+  const dueDateRaw        = formData.get('dueDate') as string
 
   // Generar número único de OT
   const date = new Date()
@@ -131,15 +140,19 @@ export async function createWorkOrder(formData: FormData) {
     data: {
       organizationId: org.id,
       number,
-      title:       formData.get('title') as string,
-      description: formData.get('description') as string || undefined,
-      type:        formData.get('type') as string || 'corrective',
-      priority:    formData.get('priority') as string || 'medium',
-      status:      'new',
+      title:            formData.get('title') as string,
+      description:      formData.get('description') as string || undefined,
+      type:             formData.get('type') as string || 'corrective',
+      priority:         formData.get('priority') as string || 'medium',
+      status:           technicianId ? 'assigned' : 'new',
       clientId,
       assetId,
-      createdById:  user.id,
-      assignedToId: technicianId,
+      createdById:      user.id,
+      assignedToId:     technicianId,
+      componentAffected,
+      estimatedHours,
+      scheduledDate:    scheduledDateRaw ? new Date(scheduledDateRaw) : undefined,
+      dueDate:          dueDateRaw       ? new Date(dueDateRaw)       : undefined,
     },
   })
   revalidatePath('/ordenes')
@@ -304,4 +317,136 @@ export async function toggleProjectSubtask(id: string, isCompleted: boolean) {
   })
   revalidatePath(`/proyectos/${subtask.task.workOrderId}`)
   return subtask
+}
+
+// ─── AGENDA DE TALLER (capacidad y disponibilidad) ───────────────────────────
+
+const OPEN_STATUSES = [
+  'new', 'requested', 'approved', 'scheduled', 'assigned',
+  'in_progress', 'paused', 'pending_parts', 'pending_approval',
+  'pending_client', 'reopened',
+]
+
+const HOURS_PER_WEEK = 48 // 8h × 6 days (Mon–Sat), typical Colombian field-workshop week
+
+export async function getWorkshopCapacity() {
+  const [technicians, unassigned] = await Promise.all([
+    db.user.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      include: {
+        workOrdersAssigned: {
+          where: { status: { in: OPEN_STATUSES } },
+          orderBy: [
+            { priority: 'asc' },
+            { scheduledDate: 'asc' },
+          ],
+          select: {
+            id: true, number: true, title: true, status: true, priority: true,
+            type: true, componentAffected: true,
+            estimatedHours: true, actualHours: true,
+            scheduledDate: true, dueDate: true,
+            asset: { select: { internalCode: true, name: true } },
+            client: { select: { name: true } },
+          },
+        },
+      },
+    }),
+    db.workOrder.findMany({
+      where: { status: { in: OPEN_STATUSES }, assignedToId: null },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true, number: true, title: true, status: true, priority: true,
+        type: true, componentAffected: true,
+        estimatedHours: true, actualHours: true,
+        scheduledDate: true, dueDate: true,
+        asset: { select: { internalCode: true, name: true } },
+        client: { select: { name: true } },
+      },
+    }),
+  ])
+
+  const techData = technicians.map(tech => {
+    const orders = tech.workOrdersAssigned
+    const committedHours = orders.reduce((s, o) => {
+      const remaining = Math.max(0, (o.estimatedHours ?? 4) - (o.actualHours ?? 0))
+      return s + remaining
+    }, 0)
+    const utilizationPct = Math.min(100, Math.round((committedHours / HOURS_PER_WEEK) * 100))
+    return {
+      id: tech.id,
+      name: tech.name,
+      orders,
+      committedHours: Math.round(committedHours * 10) / 10,
+      availableHours: Math.max(0, Math.round((HOURS_PER_WEEK - committedHours) * 10) / 10),
+      utilizationPct,
+    }
+  })
+
+  const totalCapacity = technicians.length * HOURS_PER_WEEK
+  const totalCommitted = techData.reduce((s, t) => s + t.committedHours, 0)
+  const shopUtilization = totalCapacity > 0 ? Math.min(100, Math.round((totalCommitted / totalCapacity) * 100)) : 0
+
+  return {
+    technicians: techData,
+    unassigned,
+    shopMetrics: {
+      totalCapacityHours: totalCapacity,
+      committedHours: Math.round(totalCommitted * 10) / 10,
+      availableHours: Math.max(0, Math.round((totalCapacity - totalCommitted) * 10) / 10),
+      utilizationPct: shopUtilization,
+      activeOrders: techData.reduce((s, t) => s + t.orders.length, 0) + unassigned.length,
+      techsOverloaded: techData.filter(t => t.utilizationPct >= 90).length,
+      hoursPerWeek: HOURS_PER_WEEK,
+    },
+  }
+}
+
+// Returns all assigned WOs in a ±3-month window for calendar display
+export async function getTechnicianSchedule() {
+  const from = new Date()
+  from.setMonth(from.getMonth() - 1)
+  from.setDate(1)
+
+  const to = new Date()
+  to.setMonth(to.getMonth() + 3)
+  to.setDate(0)
+
+  const [scheduled, noDate] = await Promise.all([
+    db.workOrder.findMany({
+      where: {
+        status: { in: OPEN_STATUSES },
+        assignedToId: { not: null },
+        scheduledDate: { gte: from, lte: to },
+      },
+      orderBy: { scheduledDate: 'asc' },
+      select: {
+        id: true, number: true, title: true, status: true, priority: true,
+        type: true, componentAffected: true,
+        estimatedHours: true, scheduledDate: true, dueDate: true,
+        assignedTo: { select: { id: true, name: true } },
+        asset: { select: { internalCode: true, name: true } },
+        client: { select: { name: true } },
+      },
+    }),
+    // WOs without scheduledDate — shown in sidebar
+    db.workOrder.findMany({
+      where: {
+        status: { in: OPEN_STATUSES },
+        assignedToId: { not: null },
+        scheduledDate: null,
+      },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true, number: true, title: true, status: true, priority: true,
+        type: true, componentAffected: true,
+        estimatedHours: true, scheduledDate: true, dueDate: true,
+        assignedTo: { select: { id: true, name: true } },
+        asset: { select: { internalCode: true, name: true } },
+        client: { select: { name: true } },
+      },
+    }),
+  ])
+
+  return { scheduled, noDate }
 }
