@@ -196,7 +196,7 @@ LAB_OPERATION_IDS=<id_operacion_1>,<id_operacion_2>`}</pre>
         <p className="font-semibold text-slate-700 mb-2">Endpoints configurados</p>
         <p>🔬 Resultados: <code>POST /muestras/resultados</code></p>
         <p>🚜 Equipos: <code>POST /equipos_componentes</code></p>
-        <p className="mt-2">Documentación: <span className="text-blue-500">https://documenter.getpostman.com/view/3331849/2sA358emB7</span></p>
+        <p className="mt-2">Base URL: <code>https://1xl9bz3b44.execute-api.us-west-2.amazonaws.com/stg/api/v1</code></p>
       </div>
 
     </div>

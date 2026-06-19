@@ -4,7 +4,7 @@
  * Documentación: https://documenter.getpostman.com/view/3331849/2sA358emB7
  */
 
-const BASE_URL = process.env.LAB_API_URL ?? 'https://1nbfrrw2yl.execute-api.us-west-2.amazonaws.com/dev/api/v1'
+const BASE_URL = process.env.LAB_API_URL ?? 'https://1xl9bz3b44.execute-api.us-west-2.amazonaws.com/stg/api/v1'
 const API_KEY  = process.env.LAB_API_KEY ?? ''
 const TOKEN    = process.env.LAB_ACCESS_TOKEN ?? ''
 
@@ -131,7 +131,7 @@ export async function fetchLabResults(params: ResultQueryParams): Promise<LabRes
       },
       cliente: params.clientId,
       operaciones: params.operationIds,
-      componente: params.components ?? [],
+      componentes: params.components ?? [],
       estados: params.statuses ?? [],
       page_key: pageKey ?? '',
     }
@@ -151,8 +151,22 @@ export async function fetchLabEquipment(clientId: string, operationIds: string[]
   let pageKey: string | null = ''
 
   do {
-    const body = { cliente: clientId, operaciones: operationIds, page_key: pageKey ?? '' }
+    const body = { entidad: 'equipo', cliente: clientId, operaciones: operationIds, page_key: pageKey ?? '' }
     const res = await labPost<LabEquipmentRecord>('/equipos_componentes', body)
+    all.push(...res.data.records)
+    pageKey = res.data.page_key
+  } while (pageKey)
+
+  return all
+}
+
+export async function fetchLabComponents(clientId: string, operationIds: string[]): Promise<LabComponentRecord[]> {
+  const all: LabComponentRecord[] = []
+  let pageKey: string | null = ''
+
+  do {
+    const body = { entidad: 'componente', cliente: clientId, operaciones: operationIds, page_key: pageKey ?? '' }
+    const res = await labPost<LabComponentRecord>('/equipos_componentes', body)
     all.push(...res.data.records)
     pageKey = res.data.page_key
   } while (pageKey)
